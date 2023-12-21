@@ -98,9 +98,6 @@ make_dart_2row <- function(x) {
 
 }
 
-make_infofile <- function(x) {
-
-}
 
 
 read_dart_folder <- function(path) {
@@ -274,3 +271,27 @@ prepare_dart2 <- function(path) {
 	}
 }
 
+
+make_infofiles <- function(path) {
+	outpath <- gsub("raw/dart", "clean", path)
+	dir.create(outpath, FALSE, FALSE)
+	ffld <- list.files(path, pattern="identifier", full.names=TRUE)
+	fld <- as.data.frame(readxl::read_excel(ffld, 2))[, c("crop", "dart.id", "planting.barcode")]
+	fld$planting.barcode <- gsub(".jpg", "", fld$planting.barcode)
+	colnames(fld)[3] <- "field.id"
+	fld$variety <- ""
+	fld$type <- "survey"
+	fref <- list.files(path, pattern="inventory", full.names=TRUE)
+	ref <- as.data.frame(readxl::read_excel(fref, 2))[, c("crop", "dart.id", "var.name.full")]
+	colnames(ref)[3] <- "variety"
+	ref$field.id <- NA
+	ref$type <- "reference"
+	z <- rbind(fld, ref)
+	
+	z$crop <- tolower(z$crop)
+	
+	for (crop in unique(z$crop)) {
+		zc <- z[z$crop == crop, ]
+		write.csv(zc, file.path(outpath, paste0(crop, "_info.csv")))
+	}
+}
