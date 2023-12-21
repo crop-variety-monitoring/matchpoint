@@ -1,0 +1,5 @@
+importFrom(SNPRelate, snpgdsIBS)
+export(combine_rf, recode_rf, match_rf, workflow_rf, shiny_rf, 
+read_dart, make_dart_1row, read_dart_folder)
+
+

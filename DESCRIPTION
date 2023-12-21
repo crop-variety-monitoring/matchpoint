@@ -1,0 +1,12 @@
+Package: matchpoint
+Description: Match sample varieties to a reference using SNP data. 
+Type: Package
+Title: Match Varieties to a Sample
+Version: 0.0-3
+Date: 2023-12-16
+biocViews:
+Depends: SNPRelate
+Suggests: readxl, DT, data.table, leaflet, shiny, semantic.dashboard, shiny.semantic, shinybusy, shinyjs, writexl
+Author: Jinliang Yang, J. Luis Mijangos, Robert J. Hijmans
+Maintainer: <r.hijmans@gmail.com>
+License: GPL (>=3)
