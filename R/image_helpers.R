@@ -1,7 +1,8 @@
 
 get_info <- function(path) {
 
-	ffld <- list.files(path, pattern="identifier", full.names=TRUE)[1]
+	ffld <- list.files(path, pattern="identifier", full.names=TRUE)
+	ffld <- ffld[substr(basename(ffld), 1, 2) != "~$"]
 	stopifnot(file.exists(ffld))
 	fld <- as.data.frame(readxl::read_excel(ffld, 2))[, c("crop", "dart.id", "planting.barcode")]
 	fld$planting.barcode <- gsub(".jpg", "", fld$planting.barcode)
@@ -10,6 +11,7 @@ get_info <- function(path) {
 	fld$type <- "survey"
 	
 	fref <- list.files(path, pattern="inventory", full.names=TRUE)
+	fref <- fref[substr(basename(fref), 1, 2) != "~$"]
 	ref <- as.data.frame(readxl::read_excel(fref, 2))[, c("crop", "dart.id", "var.name.full")]
 	colnames(ref)[3] <- "variety"
 	ref$field.id <- ""
@@ -17,7 +19,7 @@ get_info <- function(path) {
 	
 	fldref <- rbind(fld, ref)
 	fldref$crop <- tolower(fldref$crop)
-	fldref
+	unique(fldref)
 	
 }
 
@@ -52,16 +54,17 @@ prepare_dart <- function(path) {
 		
 		x <- read_dart(cropf) 
 		colnames(x$marker)[colnames(x$marker) == "AlleleID"] <- "MarkerName"
-		colnames(x$snp)[colnames(x$snp) == "AlleleID"] <- "MarkerName"
+			colnames(x$snp)[colnames(x$snp) == "AlleleID"] <- "MarkerName"
 		cn <- colnames(x$snp)
 		tab <- table(cn)
 		dups <- tab[tab > 1]
 		if (length(dups) > 0) {
+			message("adding _D1 _D2 to duplicates")
 			for (i in 1:length(dups)) {
 				n <- dups[i]
 				stopifnot(n == 2)
 				nm <- names(n)
-				cn[cn == nm] <- paste0(nm, c("_R1", "_R2"))
+				cn[cn == nm] <- paste0(nm, c("_D1", "_D2"))
 			}
 			colnames(x$snp) <- cn
 		}
@@ -91,7 +94,7 @@ prepare_dart <- function(path) {
 				message(paste("SNP data has", nrow(x$marker), "markers. Panel has", nrow(position), "matches")) 
 			}
 			m <- match(x$marker$MarkerName, position$MarkerName)
-			if (any(is.na(m))) message("unknown markers found")
+			if (any(is.na(m))) message(paste0(sum(is.na(m)), " unknown markers found"))
 		}
 		x$marker$order <- 1:nrow(x$marker)
 		m <- merge(position, x$marker, by="MarkerName", all.y=TRUE)
@@ -119,7 +122,7 @@ prepare_dart <- function(path) {
 #			mnames[nopref] <- paste0(prefix, mnames[nopref])
 #		}
 		cns <- colnames(ibs)[-c(1:3)]
-		cns <- gsub("_R.$", "", cns)
+		cns <- gsub("_D.$", "", cns)
 		i <- match(cns, mnames)
 		unk <- cns[which(is.na(i))]
 		if (length(unk) > 0) {
