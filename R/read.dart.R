@@ -16,18 +16,18 @@ read_dart <- function(f) {
 	
 	d <- data.frame(r[(srow+1):nrow(r), 1:2], lapply(d, as.integer))
 	if (isTRUE(any(d[,-c(1:2)] > 2))) { 
-		ids <- paste(trimws(hdr[,1]), trimws(hdr[, ncol(hdr)-1]), sep="_")
+		ids <- trimws(hdr[, ncol(hdr)-1])
 		colnames(d) <- c(colnames(marker)[1:2], ids)
 		return(list(snp=d, marker=marker, geno=hdr, type="counts"))
 	} 
 	i <- seq(1, nrow(d), 2)
 	if (all(d[i,1] == d[i+1,1])) {
-		ids <- paste(trimws(hdr[,1]), trimws(hdr[,ncol(hdr)]), sep="_")
+		ids <- trimws(hdr[,ncol(hdr)])
 		colnames(d) <- c(colnames(marker)[1:2], ids)
 		list(snp=d, marker=marker, geno=hdr, type="2_row")
 	} else if (nrow(d) == length(unique(d[, 1]))) {
 		d <- d[,-2]
-		ids <- paste(trimws(hdr[,1]), trimws(hdr[,ncol(hdr)]), sep="_")
+		ids <- trimws(hdr[,ncol(hdr)])
 		colnames(d) <- c(colnames(marker)[1], ids)
 		list(snp=d, marker=marker, geno=hdr, type="1_row")	
 	} else {
