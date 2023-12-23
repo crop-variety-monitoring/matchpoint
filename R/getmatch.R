@@ -4,18 +4,17 @@
 getmatch <- function(df, cutoff=0.9, outprefix="reports/result_c0.9", verbose=TRUE){
   # df: a data.frame contains IBS results
   # cutoff: IBS cutoff for a matching 
-  nref <- length(unique(df$FID1))
-  nfield <- length(unique(df$FID2))
   sub <- df[df$IBS > cutoff, ]
   out <- sub[, c("FID2", "FID1", "IBS")]
   names(out) <- c("field_id", "ref_id", "IBS")
   out <- out[with(out, order(field_id, -IBS)),]
-
-  #res <- ddply(out, .(field_id), nrow)
-	res <- data.frame(table(out$field_id))
-  
   
   if (verbose) {
+	nref <- length(unique(df$FID1))
+	nfield <- length(unique(df$FID2))
+  #res <- ddply(out, .(field_id), nrow)
+	res <- data.frame(table(out$field_id))
+	
 	message(sprintf("# Matching [ n=%s ] field samples with [ n=%s ] ref samples using [ IBS cutoff=%s ] ...", nfield, nref, cutoff))
 	message(sprintf("# As a result, [ n=%s/%s ] field samples matched with at least one ref samples (on average matching [n= %s] refs)!", 
       nrow(res), nfield, round(mean(res$Freq), 1)))
@@ -123,6 +122,7 @@ ref_field_IBS <- function(ref_file, field_file, MAF_cutoff, SNP_Missing_Rate,
   # For multi-allelic sites, it is a count of the reference allele (3 meaning no call). 
   # “Bit2” indicates that each byte encodes up to four SNP genotypes since one byte consists of eight bits.
   tem <- df9[, -c(1:3)]
+  tem[is.na(tem)] <- 3 # missing
   tem[tem == "-"] <- 3 # - to missing
   tem[tem == 2] <- 9 # 2 het to 9 temperately
   tem[tem == 1] <- 2 # 1 homo alt to 2
