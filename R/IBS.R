@@ -211,9 +211,23 @@ match_rf <- function(d, MAF_cutoff, SNP_mr, sample_mr,
 		
 		meta <- rbind(meta123, meta4)
 	}
+	
+	out <- round(out, 4)
+	i <- grep("REF_", colnames(out))
+	out2 <- out[-i, i]
+	colnames(out2) <- gsub("REF_", "", colnames(out2))
+	out2 <- data.frame(FieldSample=gsub("FLD_", "", colnames(out)[-i]), out2, check.names=FALSE)
+	rownames(out2) <- NULL
+	outlist[["similarity"]] <- out2
+
+	out <- data.frame(1-out, check.names=FALSE)
+	rownames(out) <- NULL
+
+	outlist[["distance"]] <- out
+
 	outlist[["metadata"]] <- meta
 	outlist[["snpinfo"]] <- snpmr
-	outlist[["distance"]] <- out
+
 	outlist
 }
 

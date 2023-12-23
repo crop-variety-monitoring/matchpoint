@@ -3,7 +3,9 @@ get_info <- function(path) {
 
 	ffld <- list.files(path, pattern="identifier", full.names=TRUE)
 	ffld <- ffld[substr(basename(ffld), 1, 2) != "~$"]
-	stopifnot(file.exists(ffld))
+	if (length(ffld) == 0) {
+		stop("no identifier file found. Check path?")
+	}
 	fld <- as.data.frame(readxl::read_excel(ffld, 2))[, c("crop", "dart.id", "planting.barcode")]
 	fld$planting.barcode <- gsub(".jpg", "", fld$planting.barcode)
 	colnames(fld)[3] <- "field.id"
@@ -23,12 +25,11 @@ get_info <- function(path) {
 }
 
 
-prepare_dart <- function(path) {
+prepare_dart <- function(path, outpath) {
 
-	outpath <- gsub("raw/dart", "clean", path)
 	intpath <- gsub("raw/dart", "intermediate", path)
-
-	dir.create(outpath, FALSE, FALSE)
+	dir.create(outpath, FALSE, TRUE)
+	
 	varinfo <- get_info(path)
 
 	crops <- list.dirs(path, full.names=FALSE)
@@ -133,15 +134,21 @@ prepare_dart <- function(path) {
 			}
 			i <- i[!is.na(i)]		
 		}
+
+#		write.csv(ibs, file.path(outpath, paste0(oname, "_IBS.csv")), na="", row.names=FALSE)
 		
 		j <- which(inf$type[i] == "reference") + 3
 		ibs_ref <- ibs[, c(1:3, j)]
 		ibs_fld <- ibs[, -j]
-
 		write.csv(ibs_ref, file.path(outpath, paste0(oname, "_IBS-ref.csv")), na="", row.names=FALSE)
 		write.csv(ibs_fld, file.path(outpath, paste0(oname, "_IBS-fld.csv")), na="", row.names=FALSE)
+
 		write.csv(inf, file.path(outpath, paste0(oname, "_info.csv")), row.names=FALSE)
-		writexl::write_xlsx(x, file.path(outpath, paste0(oname, ".xlsx")), format_headers=FALSE)		
+		writexl::write_xlsx(x, file.path(outpath, paste0(oname, ".xlsx")), format_headers=FALSE)
+
+		cropff <- list.files(croppath, pattern=".csv$", ignore.case=TRUE, full=TRUE)
+		outff <- gsub("Report_", "", basename(cropff))
+		ok <- file.copy(cropff, file.path(outpath, outff))
 	}
 }
 
