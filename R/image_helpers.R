@@ -19,8 +19,7 @@ get_info <- function(path) {
 	
 	fldref <- rbind(fld, ref)
 	fldref$crop <- tolower(fldref$crop)
-	unique(fldref)
-	
+	unique(fldref)	
 }
 
 
@@ -30,7 +29,7 @@ prepare_dart <- function(path) {
 	intpath <- gsub("raw/dart", "intermediate", path)
 
 	dir.create(outpath, FALSE, FALSE)
-	info <- get_info(path)
+	varinfo <- get_info(path)
 
 	crops <- list.dirs(path, full.names=FALSE)
 	crops <- crops[crops != ""]
@@ -54,7 +53,7 @@ prepare_dart <- function(path) {
 		
 		x <- read_dart(cropf) 
 		colnames(x$marker)[colnames(x$marker) == "AlleleID"] <- "MarkerName"
-			colnames(x$snp)[colnames(x$snp) == "AlleleID"] <- "MarkerName"
+		colnames(x$snp)[colnames(x$snp) == "AlleleID"] <- "MarkerName"
 		cn <- colnames(x$snp)
 		tab <- table(cn)
 		dups <- tab[tab > 1]
@@ -88,7 +87,7 @@ prepare_dart <- function(path) {
 			colnames(position)[1] <- "MarkerName"
 			position$MarkerName <- toupper(position$MarkerName)
 			i <- position$MarkerName %in% x$marker$MarkerName
-			#j <- (!x$marker$MarkerName %in% position$MarkerName )
+			#j <- !(x$marker$MarkerName %in% position$MarkerName )
 			position <- position[i, ]
 			if (nrow(position) != nrow(x$marker)) {
 				message(paste("SNP data has", nrow(x$marker), "markers. Panel has", nrow(position), "matches")) 
@@ -102,48 +101,47 @@ prepare_dart <- function(path) {
 		m$order <- NULL
 		x$marker <- m
 
-		inf <- info[info$crop == crop, ]
+		inf <- varinfo[varinfo$crop == crop, ]
 		if (!is.null(loc)) {
 			n <- nrow(inf)
 			i <- match(inf$field.id, loc$field.id)
 			inf <- merge(inf, loc, by="field.id", all.x=TRUE)
 			stopifnot(nrow(inf) == n)
-			inf <- inf[, c(names(info), c("longitude", "latitude"))]
+			inf <- inf[, c(names(inf), c("longitude", "latitude"))]
 		}
 		x$info <- inf
 
 		ibs <- merge(x$marker[, 1:3], x$snp, all=TRUE)
-		cinfo <- info[info$crop == crop, ]
-		mnames <- cinfo$dart.id
-#		prefix <- paste0(oname, "_")
-#		prefix <- gsub("_moreOrders", "", prefix)
-#		nopref <- which(substr(mnames, 1, 3) != substr(oname, 1, 3)) 
-#		if (length(nopref) > 0) {
-#			mnames[nopref] <- paste0(prefix, mnames[nopref])
-#		}
-		cns <- colnames(ibs)[-c(1:3)]
-		cns <- gsub("_D.$", "", cns)
-		i <- match(cns, mnames)
-		unk <- cns[which(is.na(i))]
+		
+		refnms <- as.character(inf[inf$crop == crop, "dart.id"])
+		dartnms <- gsub("_D.$", "", colnames(ibs)[-c(1:3)])
+		i <- match(dartnms, refnms)
+		
+		unk <- dartnms[which(is.na(i))]
 		if (length(unk) > 0) {
-			n <- length(unk)
-			if (n > 8) {
-				unk <- c(unk[1:6], "...")
+			if (oname == "DMz23-7957_7228") {
+				## undeclared 
+				unk <- unk[!(unk %in% c('327', '328', '329', '330', '331', '332', '333', '334', '335', '336', '337', '338', '339', '340', '341', '342', '343', '344'))]
+			} else if (oname ==  "DCob23-7823") {
+				unk <- unk[!(unk %in% c('A5145', 'A5146', 'A5147', 'A5148', 'A5149', 'A5150', 'A5151', 'A5152', 'A5153', 'A5154', 'A5155', 'A5156', 'A5157', 'A5158', 'A5159', 'A5160', 'A5161', 'A5162', 'A5163', 'A5164', 'A5165', 'A5166', 'A5167', 'A5168', 'A5169', 'A5170', 'A5171', 'A5172', 'A5173', 'A5174', 'A5175', 'A5176', 'A5177', 'A5178', 'A5179', 'A5180', 'A5181', 'A5182', 'A5183', 'A5184', 'A5185', 'A5186', 'A5187', 'A5188', 'A5189', 'A5190', 'A5191', 'A5192', 'A5193', 'A5195', 'A5196', 'A5197', 'A5198', 'A5199', 'A5200', 'A5201', 'A5202', 'A5203', 'A5204', 'A5205', 'A5206', 'A5207', 'A5208', 'A5209', 'A5210', 'A5211', 'A5212', 'A5213', 'A5214', 'A5215', 'A5216', 'A5217', 'A5218', 'A5219', 'A5220', 'A5221', 'A5222', 'A5223', 'A5224', 'A5225', 'A5226'))]
 			}
-			message(paste0("removing ", n, " unknown samples:\n", paste(unk, collapse=", ")))
+			n <- length(unk)
+			if (n > 0) {
+				if (n > 8) {
+					unk <- c(unk[1:6], "...")
+				}
+				message(paste0("removing ", n, " unknown samples:\n", paste(unk, collapse=", ")))
+			}
 			i <- i[!is.na(i)]		
 		}
 		
-		j <- which(info$type[i] == "reference") + 3
-
+		j <- which(inf$type[i] == "reference") + 3
 		ibs_ref <- ibs[, j]
 		ibs_fld <- ibs[, -j]
 
 		write.csv(ibs_ref, file.path(outpath, paste0(oname, "_ibs-ref.csv")), row.names=FALSE)
 		write.csv(ibs_fld, file.path(outpath, paste0(oname, "_ibs-fld.csv")), row.names=FALSE)
-
 		write.csv(inf, file.path(outpath, paste0(oname, "_info.csv")), row.names=FALSE)
-
 		writexl::write_xlsx(x, file.path(outpath, paste0(oname, ".xlsx")), format_headers=FALSE)		
 	}
 }
