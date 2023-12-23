@@ -45,14 +45,28 @@ rescale01 <- function(x) {
   (x - min(x)) / (max(x) - min(x))
 }
 
+#het_rate <- function(x){
+#  a <- as.data.frame(table(x))
+## would need  if (nrow(a) == 0) return(NA)
+#  b <- merge(data.frame(x=c(0,1,2,3), val=c(0,0,0,0)), a, by="x", all.x=TRUE)
+#  if(nrow(a) < 4){
+#    b[is.na(b$Freq), ]$Freq <- 0
+#  }
+#  return(b[b$x==1,]$Freq/(b[b$x==0,]$Freq + b[b$x==1,]$Freq + b[b$x==2,]$Freq))
+#}
+
+## faster and can handle all(is.na(x))
 het_rate <- function(x){
-  a <- as.data.frame(table(x))
-  b <- merge(data.frame(x=c(0,1,2,3), val=c(0,0,0,0)), a, by="x", all.x=TRUE)
-  if(nrow(a) < 4){
-    b[is.na(b$Freq), ]$Freq <- 0
-  }
-  return(b[b$x==1,]$Freq/(b[b$x==0,]$Freq + b[b$x==1,]$Freq + b[b$x==2,]$Freq))
+	a <- table(factor(x, levels=0:2))
+	a[2] / sum(a)
 }
+
+
+remove_before <- function(x, token="_") {
+	i <- pmax(0, regexpr(token, x))
+	substr(x, i+1, 1000)
+}
+
 
 ref_field_IBS <- function(ref_file, field_file, MAF_cutoff, SNP_Missing_Rate, 
                           Ref_Missing_Rate, Sample_Missing_Rate, 
@@ -73,9 +87,12 @@ ref_field_IBS <- function(ref_file, field_file, MAF_cutoff, SNP_Missing_Rate,
   
 	
 	# assign UID to ref samples
+# should be fixed in input
+	stopifnot(length(unique(colnames(ref))) == ncol(ref))
+	stopifnot(length(unique(colnames(field))) == ncol(field))
+	
 	ref.id = paste0("ref",1:(ncol(ref)-3), "_", names(ref)[-c(1:3)])
 	names(ref) <- c("SNPID", "Chr", "Pos", ref.id)
-	
 	
 	# assign UID to field samples
 	field.id = paste0("field",1:(ncol(field)-3), "_", names(field)[-c(1:3)])
@@ -140,15 +157,10 @@ ref_field_IBS <- function(ref_file, field_file, MAF_cutoff, SNP_Missing_Rate,
   snpinfo$drp_maf <- 0
   snpinfo$drp_mr <- 0
   snpinfo$drp <- 0
-  if(nrow(snpinfo[snpinfo$maf < MAF_cutoff, ]) >0){
-    snpinfo[snpinfo$maf < MAF_cutoff, ]$drp_maf <- 1
-  }
-  if(nrow(snpinfo[snpinfo$mr > SNP_Missing_Rate, ]) >0){
-    snpinfo[snpinfo$mr > SNP_Missing_Rate, ]$drp_mr <- 1
-  }
-  if(nrow(snpinfo[snpinfo$drp_maf >0 | snpinfo$drp_mr >0,])){
-    snpinfo[snpinfo$drp_maf >0 | snpinfo$drp_mr >0,]$drp <- 1
-  }
+  snpinfo$drp_maf[(snpinfo$maf < MAF_cutoff) | is.na(snpinfo$maf)] <- 1
+  snpinfo$drp_mr[snpinfo$mr > SNP_Missing_Rate] <- 1
+  snpinfo$drp[snpinfo$drp_maf | snpinfo$drp_mr] <- 1
+ 
   
   # calculate sample missing rate
   sm <- snpgdsSampMissRate(genofile, sample.id=field.id, snp.id=d0$snpid, with.id=TRUE)
@@ -174,14 +186,10 @@ ref_field_IBS <- function(ref_file, field_file, MAF_cutoff, SNP_Missing_Rate,
   
   # normalize the range between 0 and 1
   ic <- data.frame(sid=inb$sample.id, inb=inb$inbreeding)
-  rg <- range(range(ic$inb))
-  if(rg[1] < 0){
-    ic[inb$inb < 0, ]$inb = 0
-  }
-  if(rg[2] > 1){
-    ic[inb$inb >1, ]$inb = 1
-  }
+  ic$inb[ic$inb < 0] = 0
+  ic$inb[ic$inb >1] = 1
   ic$het <- 1 - ic$inb
+
   #range(ic$inb)
   h1 <- as.data.frame(h)
   h1$sid <- row.names(h1)
@@ -191,15 +199,11 @@ ref_field_IBS <- function(ref_file, field_file, MAF_cutoff, SNP_Missing_Rate,
   names(fld) <- c("fld_smp_id", "mr", "het")
   fld$drp_miss <- 0
   fld$drp_het <- 0
-  if(nrow(fld[fld$mr > Sample_Missing_Rate, ]) > 0){
-    fld[fld$mr > Sample_Missing_Rate, ]$drp_miss <- 1
-  }
-  if(nrow(fld[fld$het > Sample_Heterozygosity_Rate, ]) > 0){
-    fld[fld$het > Sample_Heterozygosity_Rate, ]$drp_miss <- 1
-  }
-  if(nrow(fld[fld$drp_miss >0 | fld$drp_het >0,])){
-    fld[fld$drp_miss >0 | fld$drp_het >0,]$drp <- 1
-  }
+  fld$drp_miss[fld$mr > Sample_Missing_Rate] <- 1
+  ## ? should be "fld$het < Sample_Heterozygosity_Rate"
+  ## either way, it seems this is not used
+  fld$drp_miss[fld$het > Sample_Heterozygosity_Rate] <- 1
+  fld$drp[fld$drp_miss | fld$drp_het] <- 1
   
   # calculate inbreeding coefficient and then heterozygosity for ref data
   inb_ref <- snpgdsIndInb(genofile, sample.id=ref.id, snp.id=d0$snp.id, autosome.only=FALSE,remove.monosnp=TRUE,
@@ -208,33 +212,26 @@ ref_field_IBS <- function(ref_file, field_file, MAF_cutoff, SNP_Missing_Rate,
                       allele.freq=NULL, out.num.iter=TRUE,verbose=TRUE)
   
   # normalize the range between 0 and 1
-  ic1 <- data.frame(sid=inb_ref$sample.id, inb=inb$inbreeding)
-  rg <- range(range(ic1$inb))
-  if(rg[1] < 0){
-    ic[inb$inb < 0, ]$inb = 0
-  }
-  if(rg[2] > 1){
-    ic[inb$inb >1, ]$inb = 1
-  }
-  ic$het <- 1 - ic$inb
+  ic1 <- data.frame(sid=inb_ref$sample.id, inb=inb_ref$inbreeding)
+  ic1$inb[ic1$inb < 0] = 0
+  ic1$inb[ic1$inb >1] = 1
+  ic1$het <- 1 - ic1$inb
   #range(ic$inb)
   h1 <- as.data.frame(h)
   h1$sid <- row.names(h1)
   ic1 <- merge(ic1, h1, by="sid")
   rf <- merge(rf, ic1, by.x="row.names", by.y="sid")
-  rf <- rf[, c("Row.names", "sm", "h")]
+  rf <- rf[, c("Row.names", "rm", "h")]
   names(rf) <- c("ref_smp_id", "mr", "het")
   rf$drp_miss <- 0
   rf$drp_het <-  0
-  if(nrow(rf[rf$mr > Ref_Missing_Rate, ]) > 0){
-    rf[rf$mr > Ref_Missing_Rate, ]$drp_miss <- 1
-  }
-  if(nrow(rf[rf$het > Ref_Heterozygosity_Rate, ]) > 0){
-    rf[rf$het > Ref_Heterozygosity_Rate, ]$drp_miss <- 1
-  }
-  if(nrow(rf[rf$drp_miss >0 | rf$drp_het >0,])){
-    rf[rf$drp_miss >0 | rf$drp_het >0,]$drp <- 1
-  }
+  rf$drp <-  0
+  rf$drp_miss[rf$mr > Ref_Missing_Rate] <- 1
+  ## ? should be "fld$het < Sample_Heterozygosity_Rate"
+  ## either way, it seems this is not used
+  rf$drp_het[rf$het > Ref_Heterozygosity_Rate] <- 1
+  rf$drp[rf$drp_miss | rf$drp_het] <- 1
+
   meta3 <- data.frame(Metric=c("Sample Het Avg", "Sample Het SD", "Sample Het Max", "Sample Het Min",
                                "Ref Heterozygosity Cutoff", "Sample Heterozygosity Cutoff"), 
                       Value=c(mean(ic1$h), sd(ic1$h), max(ic1$h), min(ic1$h),
@@ -264,29 +261,45 @@ ref_field_IBS <- function(ref_file, field_file, MAF_cutoff, SNP_Missing_Rate,
   outlist <- list()
   outlist[["metadata"]] <- meta
   #iidx = 1
-  for(i in IBS_cutoff){
+  i = IBS_cutoff[1]
     lout <- getmatch(d, cutoff=i, outprefix=NULL, verbose=verbose)
     
     ### best match
     best_match <- paste0("IBS_cutoff_", i, "_best_match")
     lout2 <- merge(lout[[2]], sm, by.x="field_id", by.y="row.names", all.y=T)
     names(lout2)[4] <- "Sample_SNP_Missing_Rate"
+## restoring names
+	lout2$ref_id <- remove_before(lout2$ref_id)
+	lout2$field_id <- remove_before(lout2$field_id)
+	
     outlist[[best_match]] <- lout2
     #iidx <- iidx + 1
     
     all_match <- paste0("IBS_cutoff_", i, "_all_match")
-    outlist[[all_match]] <- lout[[1]]
+
+	lout1 <- lout[[1]]
+	lout1$ref_id <- remove_before(lout1$ref_id)
+	lout1$field_id <- remove_before(lout1$field_id)
+    outlist[[all_match]] <- lout1
     
     report <- plyr::ddply(lout[[1]], .(field_id), summarise,
                     avg = mean(IBS, na.rm=TRUE),
                     sd = sd(IBS, na.rm=TRUE))
     nr <- plyr::ddply(lout[[1]], .(field_id), nrow)
+
+
     meta4 <- data.frame(Metric=c(paste0("Samples with match using IBS=",i), paste0("Avg number matches per sample using IBS=",i), paste0("Avg of IBS value with IBS=", i), paste0("SD of IBS value with IBS=", i)), 
        Value=c(nrow(report), mean(nr$V1), mean(report$avg, na.rm = TRUE), mean(report$sd, na.rm = TRUE) ))
     meta <- rbind(meta, meta4)
-  }
+  
   outlist[["metadata"]] <- meta
+	colnames(rf)[1] <- "ref_id"
+	rf$ref_id <- remove_before(rf$ref_id)
   outlist[["ref"]] <- rf
+
+	colnames(fld)[1] <- "field_id"
+	fld$field_id <- remove_before(fld$field_id)
+
   outlist[["fld"]] <- fld
   outlist[["snpinfo"]] <- snpinfo
 
@@ -298,3 +311,5 @@ ref_field_IBS <- function(ref_file, field_file, MAF_cutoff, SNP_Missing_Rate,
   writexl::write_xlsx(outlist, xlsx)
   if (verbose) message(sprintf("# Analysis Finished !!! results can be found in excel file [ %s ]", xlsx))
 }
+
+
