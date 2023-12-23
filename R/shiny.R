@@ -321,8 +321,9 @@ shiny_rf <- function(...) {
 		})
 
 		drawPoints <- function(variety) {
-			if (!exists("crd")) return(NULL)
-			points <- crd[ , c("lon", "lat")]
+			if (!exists("crd") || is.null(crd)) return(NULL)
+			if (!all(c("longitude", "latitude") %in% colnames(crd))) return (NULL)
+			points <- crd[ , c("longitude", "latitude")]
 			if (variety == "all varieties") {
 				leaflet::leafletProxy("mymap", data = points) |>
 					leaflet::clearShapes() |>
@@ -331,7 +332,7 @@ shiny_rf <- function(...) {
 				leaflet::leafletProxy("mymap", data = points) |>
 					leaflet::clearShapes() |>
 					leaflet::addCircles(radius = 10, weight = 6, color = "gray")				
-				points <- crd[crd[,1] == variety, c("lon", "lat")]
+				points <- crd[crd[,1] == variety, c("longitude", "latitude")]
 				leaflet::leafletProxy("mymap", data = points) |>
 					leaflet::addCircles(radius = 15, weight = 10, color = "red")	
 			}
@@ -344,11 +345,11 @@ shiny_rf <- function(...) {
 				choices = uvars,
 				selected = uvars[1]
 			)
-			drawPoints(input$variety)
+			#drawPoints(input$variety)
 		})
 
 		shiny::observeEvent(input$variety, {
-			drawPoints(input$variety)
+			#drawPoints(input$variety)
 		})
 
 	} # server end

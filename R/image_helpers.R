@@ -104,10 +104,9 @@ prepare_dart <- function(path) {
 		inf <- varinfo[varinfo$crop == crop, ]
 		if (!is.null(loc)) {
 			n <- nrow(inf)
-			i <- match(inf$field.id, loc$field.id)
 			inf <- merge(inf, loc, by="field.id", all.x=TRUE)
 			stopifnot(nrow(inf) == n)
-			inf <- inf[, c(names(inf), c("longitude", "latitude"))]
+			inf <- inf[, c(names(varinfo), c("longitude", "latitude"))]
 		}
 		x$info <- inf
 
@@ -136,11 +135,11 @@ prepare_dart <- function(path) {
 		}
 		
 		j <- which(inf$type[i] == "reference") + 3
-		ibs_ref <- ibs[, j]
+		ibs_ref <- ibs[, c(1:3, j)]
 		ibs_fld <- ibs[, -j]
 
-		write.csv(ibs_ref, file.path(outpath, paste0(oname, "_ibs-ref.csv")), row.names=FALSE)
-		write.csv(ibs_fld, file.path(outpath, paste0(oname, "_ibs-fld.csv")), row.names=FALSE)
+		write.csv(ibs_ref, file.path(outpath, paste0(oname, "_IBS-ref.csv")), na="", row.names=FALSE)
+		write.csv(ibs_fld, file.path(outpath, paste0(oname, "_IBS-fld.csv")), na="", row.names=FALSE)
 		write.csv(inf, file.path(outpath, paste0(oname, "_info.csv")), row.names=FALSE)
 		writexl::write_xlsx(x, file.path(outpath, paste0(oname, ".xlsx")), format_headers=FALSE)		
 	}
