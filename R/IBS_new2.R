@@ -1,32 +1,32 @@
 
-ref_field_IBS2 <- function(ref_file, field_file, MAF_cutoff, SNP_Missing_Rate, 
+dart_IBS <- function(dart_file, info_file, MAF_cutoff, SNP_Missing_Rate, 
 				Ref_Missing_Rate, Sample_Missing_Rate, 
 				Ref_Heterozygosity_Rate, Sample_Heterozygosity_Rate,
 				IBS_cutoff, outdir, out_prefix, Inb_method = "mom.visscher", cpus=1,
 				verbose=FALSE){
 
+
 	Inb_method <- match.arg(Inb_method, c("mom.weir", "mom.visscher", "mle", "gcta1", "gcta2", "gcta3"))
  
-	ref <- data.table::fread(ref_file)
-	field <- data.table::fread(field_file)
-	stopifnot(nrow(ref) == nrow(field))
-	
-	# assign UID to ref samples
-# should be fixed in input
-	stopifnot(length(unique(colnames(ref))) == ncol(ref))
-	stopifnot(length(unique(colnames(field))) == ncol(field))
-	
-	ref.id = paste0("ref",1:(ncol(ref)-3), "_", names(ref)[-c(1:3)])
-	names(ref) <- c("SNPID", "Chr", "Pos", ref.id)
-	
-	# assign UID to field samples
-	field.id = paste0("field",1:(ncol(field)-3), "_", names(field)[-c(1:3)])
-	names(field) <- c("SNPID", "Chr", "Pos", field.id)
-	
-	df9 <- merge(ref, field[, -c(2:3)], by="SNPID")
+	dart <- data.frame(data.table::fread(dart_file), check.names=FALSE)
+	info <- data.table::fread(info_file)
+
+	stopifnot(length(unique(colnames(dart))) == ncol(dart))
+	cns <- colnames(dart)[-c(1:3)]
+	mcns <- gsub("_D1$|_D2$", "", cns)
+	i <- match(mcns, info$dart.id)
+	if (any(is.na(i))) {
+		stop("cannot match all dart.id")
+	}
+	ir <- info$type[i] == "reference"
+	ref.id <- cns[which(ir)]
+	field.id <- cns[which(!ir)]
+#	hdr.id <- colnames(dart)[1:3]
+#	ref <- dart[ , c(hdr.id, ref.id)]
+#	field <- dart[ , c(hdr.id, fld.id)]
 	
 	meta1 <- data.frame(Metric=c("Marker Total Ref", "Marker Total Sample",	"Marker Common"), 
-							Value=c(nrow(ref), nrow(field), nrow(df9)))
+						Value=c(length(ref.id), length(field.id), nrow(dart)))
 	
 	### recode SNP to be the number of A alleles
 	# There are four possible values stored in the variable genotype: 0, 1, 2 and 3. 
@@ -34,11 +34,11 @@ ref_field_IBS2 <- function(ref_file, field_file, MAF_cutoff, SNP_Missing_Rate,
 	# two A alleles, and “3” is a missing genotype. 
 	# For multi-allelic sites, it is a count of the reference allele (3 meaning no call). 
 	# “Bit2” indicates that each byte encodes up to four SNP genotypes since one byte consists of eight bits.
-	tem <- as.matrix(df9[, -c(1:3)])
+	tem <- as.matrix(dart[, -c(1:3)])
 	tem[] <- match(tem, c(0,2,1,NA)) - 1
 
 	df <- apply(tem, 2, as.numeric)
-	df0 <- cbind(df9[, 1:3], tem)
+	df0 <- cbind(dart[, 1:3], tem)
 	
 	# calculate het rate
 	h <- apply(df, 2, matchpoint:::het_rate)
@@ -48,7 +48,7 @@ ref_field_IBS2 <- function(ref_file, field_file, MAF_cutoff, SNP_Missing_Rate,
 	obj_gds <- file.path(outdir, paste0(out_prefix, "_geno.gds"))
 	## create a gds file
 	SNPRelate::snpgdsCreateGeno(obj_gds, genmat = df,
-					sample.id = names(df0)[-c(1:3)], snp.id = df0$SNPID,
+					sample.id = names(df0)[-c(1:3)], snp.id = df0$MarkerName,
 					snp.chromosome = df0$Chr,
 					snp.position = df0$Pos,
 					snp.allele = NULL, snpfirstdim=TRUE)
@@ -79,7 +79,7 @@ ref_field_IBS2 <- function(ref_file, field_file, MAF_cutoff, SNP_Missing_Rate,
 	#r0 <- subset(rf, rm <= Ref_Missing_Rate)
 	meta2 <- data.frame(
 		Metric=c("Marker MAF Cutoff", "Marker Missing Cutoff", "Marker Final", "Marker Final Coverage", "Field Sample Total", "Field Sample Missing Cutoff", "Field Final", "Reference Sample Total", "Reference Sample Missing Cutoff", "Reference Final"), 
-		Value=c(MAF_cutoff, SNP_Missing_Rate, nrow(d0), ".", ncol(field)-3, Sample_Missing_Rate, nrow(subset(fld, sm <= Sample_Missing_Rate)), ncol(ref)-3, Ref_Missing_Rate, nrow(subset(fld, sm <= Sample_Missing_Rate)))
+		Value=c(MAF_cutoff, SNP_Missing_Rate, nrow(d0), ".", length(field.id), Sample_Missing_Rate, nrow(subset(fld, sm <= Sample_Missing_Rate)), length(ref.id), Ref_Missing_Rate, nrow(subset(fld, sm <= Sample_Missing_Rate)))
 	)
 	
 	# calculate inbreeding coefficient and then heterozygosity for field data
@@ -98,8 +98,7 @@ ref_field_IBS2 <- function(ref_file, field_file, MAF_cutoff, SNP_Missing_Rate,
 	fld <- merge(fld, ic, by.x="row.names", by.y="sid")
 	fld <- fld[, c("Row.names", "sm", "h")]
 	names(fld) <- c("fld_smp_id", "mr", "het")
-	fld$drp_miss <- 0
-	fld$drp_het <- 0
+	fld$drp <- fld$drp_miss <- fld$drp_het <- 0
 	fld$drp_miss[fld$mr > Sample_Missing_Rate] <- 1
 	## should this be "fld$het < Sample_Heterozygosity_Rate" ?
 	## either way, it seems this is not used
@@ -132,86 +131,64 @@ ref_field_IBS2 <- function(ref_file, field_file, MAF_cutoff, SNP_Missing_Rate,
 		Metric=c("Sample Het Avg", "Sample Het SD", "Sample Het Max", "Sample Het Min", "Ref Heterozygosity Cutoff", "Sample Heterozygosity Cutoff"), 
 		Value=c(mean(ic1$h), sd(ic1$h), max(ic1$h), min(ic1$h),								Ref_Heterozygosity_Rate, Sample_Heterozygosity_Rate)
 	)
+	meta <- rbind(meta1, meta2, meta3)
+	outlist <- list(metadata=meta)
 	
 	# calculate pair-wise IBS
 	ibs <- SNPRelate::snpgdsIBS(genofile, num.thread=cpus, autosome.only=FALSE, maf= MAF_cutoff, missing.rate=SNP_Missing_Rate, verbose=verbose)
+	SNPRelate::snpgdsClose(genofile)
+	
+	out <- round(ibs[[3]], 4)
+	colnames(out) <- rownames(out) <- names(df0)[-c(1:3)]
+	i <- colnames(out) %in% ref.id
+	out2 <- out[-i, i]
+	
+	d <- data.frame(field_id=rownames(out2), 
+					ref_id=rep(colnames(out2), each=nrow(out2)),
+					variety="", IBS=as.vector(out2))
 
-	snpgdsClose(genofile)
+	out2 <- data.frame(FieldSample=colnames(out)[-i], out2, check.names=FALSE)
+	rownames(out2) <- NULL
 
-	
-	out <- ibs[[3]]
-	dimnames(out) <- dimnames(out) <- list(names(df0)[-c(1:3)], names(df0)[-c(1:3)])
-	xy <- t(combn(colnames(out), 2))
-	
-	# convert to data.frame
-	d <- data.frame(xy, dist=out[xy])
-	names(d) <- c("ref", "field", "IBS")
-	
-	# subset ref vs. field
-	d$type1 <- "field"
-	d$type2 <- "ref"
-	d$type1[d$ref %in% names(ref)[-c(1:3)]] <- "ref"
-	d$type2[d$field %in% names(field)[-c(1:3)]] <- "field"
-	d <- subset(d, type1 == "ref" & type2 =="field")
-	
-	names(d)[1:3] <- c("FID1", "FID2", "IBS")
-	
-	meta <- rbind(meta1, meta2, meta3)
-	outlist <- list(metadata=meta)
+	mref_id <- d$ref_id
+	mref_id <- gsub("_D1$|_D2$", "", mref_id)
+
+	d$variety <- info$variety[match(mref_id, info$dart.id)]
+	d <- d[with(d, order(field_id, -IBS)),]
 
 # matches
-	dmatch <- d[, c("FID2", "FID1", "IBS")]
-	names(dmatch) <- c("field_id", "ref_id", "IBS")
-	dmatch <- dmatch[with(dmatch, order(field_id, -IBS)),]
-## restoring names
-	dmatch$ref_id <- matchpoint:::remove_before(dmatch$ref_id)
-	dmatch$field_id <- matchpoint:::remove_before(dmatch$field_id)
-
-	best <- dmatch[!duplicated(dmatch$field_id),]
-	names(sm) <- matchpoint:::remove_before(names(sm))
-	best <- merge(best, sm, by.x="field_id", by.y="row.names", all.y=T)
-	names(best)[4] <- "Sample_SNP_Missing_Rate"
+	best <- d[!duplicated(d$field_id),]
+	best <- merge(best, sm, by.x="field_id", by.y="row.names", all.y=TRUE)
+	names(best)[5] <- "Sample_SNP_Missing_Rate"
 	outlist[["best_match"]] <- best
 
 	IBS_cutoff <- IBS_cutoff[1]
-	dmatch <- dmatch[dmatch$IBS > IBS_cutoff, ]
-	outlist[[paste0("IBS_", IBS_cutoff)]] <- dmatch
+	d <- d[d$IBS > IBS_cutoff, ]
+	outlist[[paste0("IBS_", IBS_cutoff)]] <- d
 		
-	report <- plyr::ddply(dmatch, plyr::`.`(field_id), plyr::summarise,
+	report <- plyr::ddply(d, plyr::`.`(field_id), plyr::summarise,
 							avg = mean(IBS, na.rm=TRUE),
 							sd = sd(IBS, na.rm=TRUE))
-	nr <- plyr::ddply(dmatch, plyr::`.`(field_id), nrow)
+	nr <- plyr::ddply(d, plyr::`.`(field_id), nrow)
 
 
-	meta4 <- data.frame(Metric=c(paste0("Samples with match using IBS=",IBS_cutoff), paste0("Avg number matches per sample using IBS=",IBS_cutoff), paste0("Avg of IBS value with IBS=", IBS_cutoff), paste0("SD of IBS value with IBS=", IBS_cutoff)), 
-	Value=c(nrow(report), mean(nr$V1), mean(report$avg, na.rm = TRUE), mean(report$sd, na.rm = TRUE) ))
+	meta4 <- data.frame(
+		Metric=c(paste0("Samples with match using IBS=",IBS_cutoff), paste0("Avg number matches per sample using IBS=",IBS_cutoff), paste0("Avg of IBS value with IBS=", IBS_cutoff), paste0("SD of IBS value with IBS=", IBS_cutoff)), 
+		Value=c(nrow(report), mean(nr$V1), mean(report$avg, na.rm = TRUE), mean(report$sd, na.rm = TRUE) ))
 	meta <- rbind(meta, meta4)
 
-	out <- round(out, 4)
-	i <- grep("^ref", colnames(out))
-	rownames(out) <- colnames(out) <- matchpoint:::remove_before(colnames(out))
-
-	out2 <- out[-i, i]
-	out2 <- data.frame(FieldSample=colnames(out)[-i], out2, check.names=FALSE)
-	rownames(out2) <- NULL
 	outlist[["similarity"]] <- out2
-
 	out <- data.frame(ID=colnames(out), 1-out, check.names=FALSE)
 	rownames(out) <- NULL
 	outlist[["distance"]] <- out
 	outlist[["snpinfo"]] <- snpinfo
-	
 	colnames(rf)[1] <- "ref_id"
-	rf$ref_id <- matchpoint:::remove_before(rf$ref_id)
 	outlist[["ref"]] <- rf
-
 	colnames(fld)[1] <- "field_id"
-	fld$field_id <- matchpoint:::remove_before(fld$field_id)
 	outlist[["field"]] <- fld
 
-
 	#file.remove(obj_gds)
-	xlsx <- file.path(outdir, paste0(out_prefix, "_matches.xlsx"))
+	xlsx <- file.path(outdir, paste0(out_prefix, ".xlsx"))
 	writexl::write_xlsx(outlist, xlsx)
 	invisible(outlist)
 }

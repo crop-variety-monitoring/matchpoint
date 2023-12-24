@@ -30,7 +30,7 @@ prepare_dart <- function(path, outpath) {
 	intpath <- gsub("raw/dart", "intermediate", path)
 	dir.create(outpath, FALSE, TRUE)
 	
-	varinfo <- get_info(path)
+	varinfo <- matchpoint:::get_info(path)
 
 	crops <- list.dirs(path, full.names=FALSE)
 	crops <- crops[crops != ""]
@@ -52,7 +52,7 @@ prepare_dart <- function(path, outpath) {
 		oname <- gsub("Report_", "", basename(cropf))
 		oname <- gsub("_SNP.csv", "", oname)
 		
-		x <- read_dart(cropf) 
+		x <- matchpoint:::read_dart(cropf) 
 		colnames(x$marker)[colnames(x$marker) == "AlleleID"] <- "MarkerName"
 		colnames(x$snp)[colnames(x$snp) == "AlleleID"] <- "MarkerName"
 		cn <- colnames(x$snp)
@@ -72,7 +72,7 @@ prepare_dart <- function(path, outpath) {
 		x$marker$MarkerName <- toupper(x$marker$MarkerName)
 		x$snp$MarkerName <- toupper(x$snp$MarkerName)
 
-		x <- make_dart_1row(x)
+		x <- x <- matchpoint:::make_dart_1row(x)
 		x$type <- NULL
 
 		if (crop == "cassava") {
@@ -113,9 +113,12 @@ prepare_dart <- function(path, outpath) {
 
 		ibs <- merge(x$marker[, 1:3], x$snp, all=TRUE)
 		
-		refnms <- as.character(inf[inf$crop == crop, "dart.id"])
 		dartnms <- gsub("_D.$", "", colnames(ibs)[-c(1:3)])
+		refnms <- as.character(inf[inf$crop == crop, "dart.id"])
 		i <- match(dartnms, refnms)
+
+		write.csv(ibs[, -(which(is.na(i))+3)], file.path(outpath, paste0(oname, "_IBS.csv")), na="", row.names=FALSE)
+
 		
 		unk <- dartnms[which(is.na(i))]
 		if (length(unk) > 0) {
@@ -134,14 +137,13 @@ prepare_dart <- function(path, outpath) {
 			}
 			i <- i[!is.na(i)]		
 		}
+	
 
-#		write.csv(ibs, file.path(outpath, paste0(oname, "_IBS.csv")), na="", row.names=FALSE)
-		
 		j <- which(inf$type[i] == "reference") + 3
 		ibs_ref <- ibs[, c(1:3, j)]
 		ibs_fld <- ibs[, -j]
-		write.csv(ibs_ref, file.path(outpath, paste0(oname, "_IBS-ref.csv")), na="", row.names=FALSE)
-		write.csv(ibs_fld, file.path(outpath, paste0(oname, "_IBS-fld.csv")), na="", row.names=FALSE)
+		write.csv(ibs_ref, file.path(outpath, paste0(oname, "_IBS-ref.csv")), na="-", row.names=FALSE)
+		write.csv(ibs_fld, file.path(outpath, paste0(oname, "_IBS-fld.csv")), na="-", row.names=FALSE)
 
 		write.csv(inf, file.path(outpath, paste0(oname, "_info.csv")), row.names=FALSE)
 		writexl::write_xlsx(x, file.path(outpath, paste0(oname, ".xlsx")), format_headers=FALSE)
