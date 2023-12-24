@@ -117,7 +117,7 @@ prepare_dart <- function(path, outpath) {
 		refnms <- as.character(inf[inf$crop == crop, "dart.id"])
 		i <- match(dartnms, refnms)
 
-		write.csv(ibs[, -(which(is.na(i))+3)], file.path(outpath, paste0(oname, "_IBS.csv")), na="", row.names=FALSE)
+		write.csv(ibs[, c(1:3, which(!is.na(i))+3)], file.path(outpath, paste0(oname, "_IBS.csv")), na="", row.names=FALSE)
 
 		
 		unk <- dartnms[which(is.na(i))]
