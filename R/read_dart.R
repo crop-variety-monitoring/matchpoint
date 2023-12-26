@@ -1,7 +1,11 @@
 
-read_dart <- function(f) {
-	r <- read.csv(f, header=FALSE)
-	x <- r[-1, ]
+read_dart <- function(filename) {
+
+	r <- data.frame(data.table::fread(filename), check.names=FALSE)
+	ordname <- gsub("^Report_", "", basename(filename))
+	ordname <- gsub("\\_SNP.csv$", "", ordname)
+
+	x <- r[2:15, 1:30]
 	x[x != "*"] <- NA
 	srow <- which(apply(x, 1, \(i) all(is.na(i))))[1] + 1
 	scol <- which(apply(x, 2, \(i) all(is.na(i))))[1]
@@ -11,10 +15,11 @@ read_dart <- function(f) {
 
 	hdr <- data.frame(t(r[1:srow, scol:ncol(r)]))
 
-	d <- r[(srow+1):nrow(r), scol:ncol(r), ]
-	d[d == "-"] <- NA
-	
-	d <- data.frame(r[(srow+1):nrow(r), 1:2], lapply(d, as.integer))
+	d <- as.matrix(r[(srow+1):nrow(r), scol:ncol(r)])
+	v <- as.vector(d)
+	v[v == "-"] <- NA
+	d <- matrix(as.integer(v), nrow=nrow(d), ncol=ncol(d))	
+	d <- data.frame(r[(srow+1):nrow(r), 1:2], d, check.names=FALSE)
 	if (isTRUE(any(d[,-c(1:2)] > 2))) { 
 		ids <- trimws(hdr[, ncol(hdr)-1])
 		colnames(d) <- c(colnames(marker)[1:2], ids)
@@ -24,15 +29,15 @@ read_dart <- function(f) {
 	if (all(d[i,1] == d[i+1,1])) {
 		ids <- trimws(hdr[,ncol(hdr)])
 		colnames(d) <- c(colnames(marker)[1:2], ids)
-		list(snp=d, marker=marker, geno=hdr, type="2_row")
+		list(snp=d, marker=marker, geno=hdr, type="2_row", order=ordname)
 	} else if (nrow(d) == length(unique(d[, 1]))) {
 		d <- d[,-2]
 		ids <- trimws(hdr[,ncol(hdr)])
 		colnames(d) <- c(colnames(marker)[1], ids)
-		list(snp=d, marker=marker, geno=hdr, type="1_row")	
+		list(snp=d, marker=marker, geno=hdr, type="1_row", order=ordname)	
 	} else {
 		warning("don't know if this is a Count, 1_row or a 2_row file")
-		list(snp=d, marker=marker, geno=hdr, type="???")		
+		list(snp=d, marker=marker, geno=hdr, type="???", order=ordname)		
 	}
 }
 

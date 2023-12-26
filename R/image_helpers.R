@@ -1,5 +1,6 @@
 
-get_info <- function(path) {
+
+get_varinfo <- function(path) {
 
 	ffld <- list.files(path, pattern="identifier", full.names=TRUE)
 	ffld <- ffld[substr(basename(ffld), 1, 2) != "~$"]
@@ -10,14 +11,14 @@ get_info <- function(path) {
 	fld$planting.barcode <- gsub(".jpg", "", fld$planting.barcode)
 	colnames(fld)[3] <- "field.id"
 	fld$variety <- ""
-	fld$type <- "survey"
+	fld$reference <- FALSE
 	
 	fref <- list.files(path, pattern="inventory", full.names=TRUE)
 	fref <- fref[substr(basename(fref), 1, 2) != "~$"]
 	ref <- as.data.frame(readxl::read_excel(fref, 2))[, c("crop", "dart.id", "var.name.full")]
 	colnames(ref)[3] <- "variety"
 	ref$field.id <- ""
-	ref$type <- "reference"
+	ref$reference <- TRUE
 	
 	fldref <- rbind(fld, ref)
 	fldref$crop <- tolower(fldref$crop)
@@ -30,7 +31,7 @@ prepare_dart <- function(path, outpath) {
 	intpath <- gsub("raw/dart", "intermediate", path)
 	dir.create(outpath, FALSE, TRUE)
 	
-	varinfo <- matchpoint:::get_info(path)
+	varinfo <- matchpoint:::get_varinfo(path)
 
 	crops <- list.dirs(path, full.names=FALSE)
 	crops <- crops[crops != ""]
@@ -41,18 +42,14 @@ prepare_dart <- function(path, outpath) {
 	if (length(floc) == 1) {
 		loc <- as.data.frame(readxl::read_excel(floc))
 	}
-	fpan <- file.path(path, "DarTAG Mid density panel info.xlsx")
-
 
 	for (crop in crops) {
 		print(crop); flush.console()
 		croppath <- file.path(path, crop)
 		cropf <- list.files(croppath, pattern="SNP.csv$", full.names=TRUE, ignore.case=TRUE)
 		stopifnot (length(cropf) == 1)
-		oname <- gsub("Report_", "", basename(cropf))
-		oname <- gsub("_SNP.csv", "", oname)
 		
-		x <- matchpoint:::read_dart(cropf) 
+		x <- matchpoint::read_dart(cropf) 
 		colnames(x$marker)[colnames(x$marker) == "AlleleID"] <- "MarkerName"
 		colnames(x$snp)[colnames(x$snp) == "AlleleID"] <- "MarkerName"
 		cn <- colnames(x$snp)
@@ -74,30 +71,17 @@ prepare_dart <- function(path, outpath) {
 
 		x <- x <- matchpoint:::make_dart_1row(x)
 		x$type <- NULL
-
-		if (crop == "cassava") {
-			position <- data.frame(do.call(rbind, strsplit(x$snp[,1], "_")))
-			position <- cbind(x$snp[,1], position[,-1])
-			colnames(position) <- c("MarkerName", "Chr", "Pos")
-		} else {
-			vars <- c("DART.ID", "Chr", "Pos")
-			if (crop == "cowpea") {
-				vars[1] <- "Alt .ID (optional)"
-			}
-			position <- as.data.frame(readxl::read_excel(fpan, crop))[, vars]
-			colnames(position)[1] <- "MarkerName"
-			position$MarkerName <- toupper(position$MarkerName)
-			i <- position$MarkerName %in% x$marker$MarkerName
-			#j <- !(x$marker$MarkerName %in% position$MarkerName )
-			position <- position[i, ]
-			if (nrow(position) != nrow(x$marker)) {
-				message(paste("SNP data has", nrow(x$marker), "markers. Panel has", nrow(position), "matches")) 
-			}
-			m <- match(x$marker$MarkerName, position$MarkerName)
-			if (any(is.na(m))) message(paste0(sum(is.na(m)), " unknown markers found"))
+		pos <- matchpoint::marker_positions(crop)
+		i <- pos$MarkerName %in% x$marker$MarkerName
+		#j <- !(x$marker$MarkerName %in% pos$MarkerName )
+		pos <- pos[i, ]
+		if (nrow(pos) != nrow(x$marker)) {
+			message(paste("SNP data has", nrow(x$marker), "markers. Panel has", nrow(pos), "matches")) 
 		}
+		m <- match(x$marker$MarkerName, pos$MarkerName)
+		if (any(is.na(m))) message(paste0(sum(is.na(m)), " unknown markers found"))
 		x$marker$order <- 1:nrow(x$marker)
-		m <- merge(position, x$marker, by="MarkerName", all.y=TRUE)
+		m <- merge(pos, x$marker, by="MarkerName", all.y=TRUE)
 		m <- m[m$order, ]
 		m$order <- NULL
 		x$marker <- m
@@ -111,21 +95,20 @@ prepare_dart <- function(path, outpath) {
 		}
 		x$info <- inf
 
-		ibs <- merge(x$marker[, 1:3], x$snp, all=TRUE)
-		
-		dartnms <- gsub("_D.$", "", colnames(ibs)[-c(1:3)])
+#		ibs <- merge(x$marker[, 1:3], x$snp, all=TRUE)
+		dartnms <- gsub("_D.$", "", colnames(x$snp)[-1])
 		refnms <- as.character(inf[inf$crop == crop, "dart.id"])
 		i <- match(dartnms, refnms)
 
-		write.csv(ibs[, c(1:3, which(!is.na(i))+3)], file.path(outpath, paste0(oname, "_IBS.csv")), na="", row.names=FALSE)
+#		write.csv(ibs[, c(1:3, which(!is.na(i))+3)], file.path(outpath, paste0(oname, "_IBS.csv")), na="", row.names=FALSE)
 
-		
 		unk <- dartnms[which(is.na(i))]
+
 		if (length(unk) > 0) {
-			if (oname == "DMz23-7957_7228") {
+			if (x$order == "DMz23-7957_7228") {
 				## undeclared 
 				unk <- unk[!(unk %in% c('327', '328', '329', '330', '331', '332', '333', '334', '335', '336', '337', '338', '339', '340', '341', '342', '343', '344'))]
-			} else if (oname ==  "DCob23-7823") {
+			} else if (x$order ==  "DCob23-7823") {
 				unk <- unk[!(unk %in% c('A5145', 'A5146', 'A5147', 'A5148', 'A5149', 'A5150', 'A5151', 'A5152', 'A5153', 'A5154', 'A5155', 'A5156', 'A5157', 'A5158', 'A5159', 'A5160', 'A5161', 'A5162', 'A5163', 'A5164', 'A5165', 'A5166', 'A5167', 'A5168', 'A5169', 'A5170', 'A5171', 'A5172', 'A5173', 'A5174', 'A5175', 'A5176', 'A5177', 'A5178', 'A5179', 'A5180', 'A5181', 'A5182', 'A5183', 'A5184', 'A5185', 'A5186', 'A5187', 'A5188', 'A5189', 'A5190', 'A5191', 'A5192', 'A5193', 'A5195', 'A5196', 'A5197', 'A5198', 'A5199', 'A5200', 'A5201', 'A5202', 'A5203', 'A5204', 'A5205', 'A5206', 'A5207', 'A5208', 'A5209', 'A5210', 'A5211', 'A5212', 'A5213', 'A5214', 'A5215', 'A5216', 'A5217', 'A5218', 'A5219', 'A5220', 'A5221', 'A5222', 'A5223', 'A5224', 'A5225', 'A5226'))]
 			}
 			n <- length(unk)
@@ -139,18 +122,24 @@ prepare_dart <- function(path, outpath) {
 		}
 	
 
-		j <- which(inf$type[i] == "reference") + 3
-		ibs_ref <- ibs[, c(1:3, j)]
-		ibs_fld <- ibs[, -j]
-		write.csv(ibs_ref, file.path(outpath, paste0(oname, "_IBS-ref.csv")), na="-", row.names=FALSE)
-		write.csv(ibs_fld, file.path(outpath, paste0(oname, "_IBS-fld.csv")), na="-", row.names=FALSE)
+#		j <- which(inf$type[i] == "reference") + 3
+#		ibs_ref <- ibs[, c(1:3, j)]
+#		ibs_fld <- ibs[, -j]
+#		write.csv(ibs_ref, file.path(outpath, paste0(oname, "_IBS-ref.csv")), na="-", row.names=FALSE)
+#		write.csv(ibs_fld, file.path(outpath, paste0(oname, "_IBS-fld.csv")), na="-", row.names=FALSE)
 
-		write.csv(inf, file.path(outpath, paste0(oname, "_info.csv")), row.names=FALSE)
-		writexl::write_xlsx(x, file.path(outpath, paste0(oname, ".xlsx")), format_headers=FALSE)
+		bname <- file.path(outpath, x$order)
 
-		cropff <- list.files(croppath, pattern=".csv$", ignore.case=TRUE, full=TRUE)
+		write.csv(x$info, paste0(bname, "_genotype-info.csv"), row.names=FALSE)
+#		write.csv(x$marker, paste0(bname, "_marker-info.csv"), row.names=FALSE)
+
+		cropff <- list.files(croppath, pattern=paste0("^Report_", x$order, ".*.csv$"), ignore.case=TRUE, full=TRUE)
 		outff <- gsub("Report_", "", basename(cropff))
 		ok <- file.copy(cropff, file.path(outpath, outff))
+		
+		x$order <- NULL
+		writexl::write_xlsx(x, paste0(bname, ".xlsx"), format_headers=FALSE)
+
 	}
 }
 
