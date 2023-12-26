@@ -1,19 +1,21 @@
 
 # RH based on code by Luis Mijangos
 
-check_files <- function(reffile, surfile, crdfile) {
-	if (is.null(reffile)) return("empty reference file")
-	if (is.null(surfile)) return("empty survey file")
-	if (!file.exists(reffile)) return("reference file does not exist")
-	if (!file.exists(surfile)) return("survey file does not exist")
-	if ((!is.null(crdfile)) && (!file.exists(crdfile))) return("coordinates file does not exist")
+check_files <- function(snpfile, genfile) {
+	if (is.null(snpfile)) return("empty SNP filename")
+	if (is.null(genfile)) return("empty genotypes filename")
+	if (!file.exists(snpfile)) return("SNP file does not exist")
+	if (!file.exists(genfile)) return("genotype file does not exist")
 	return("")
 }
 
-shiny_rf <- function(...) {
+shiny_IBS <- function(...) {
 
 	# globals
-	recoded <- crd <- js <- NULL
+	recoded <- FALSE
+	crd <- js <- NULL
+	fsnp <- system.file("ex/DCas00-0000_SNP.csv", package="matchpoint")
+	fvar <- system.file("ex/DCas00-0000_genotype-info.csv", package="matchpoint")
 
   #### dataset list ###
 	datasetListUI <- function(id) {
@@ -66,13 +68,16 @@ shiny_rf <- function(...) {
 				semantic.dashboard::menuItem(
 					text = shiny::span(shiny::icon("upload"), "Inputs"), tabName = "inputs_tab"),
 				semantic.dashboard::menuItem(
-					text = shiny::span(shiny::icon("map"), "Combine"), tabName = "ref_check"
+					text = shiny::span(shiny::icon("gear"), "Parameters"), tabName = "parameters_tab"
 				),
 				semantic.dashboard::menuItem(
-					text = shiny::span(shiny::icon("filter"), "Identification"), tabName = "ref_id"
+					text = shiny::span(shiny::icon("filter"), "Results"), tabName = "results_tab"
 				),
 				semantic.dashboard::menuItem(
-					text = shiny::span(shiny::icon("eye"), "Visualization"), tabName = "visualization"
+					text = shiny::span(shiny::icon("eye"), "Visualization"), tabName = "visualization_tab"
+				),
+				semantic.dashboard::menuItem(
+					text = shiny::span(shiny::icon("map"), "Map"), tabName = "map_tab"
 				)
 			)
 		),
@@ -89,8 +94,7 @@ shiny_rf <- function(...) {
 			  height = 70, width = 70
 			),
 
-############### INPUTS ################################################
-
+#### INPUT
 			semantic.dashboard::tabItems(
 				semantic.dashboard::tabItem(
 					tabName = "inputs_tab",
@@ -102,42 +106,21 @@ shiny_rf <- function(...) {
 						title_side = "top left",
 						style = box_height,
 						shiny.semantic::fileInput(
-							inputId = "reference_file",
-							label = "Reference file",
+							inputId = "snp_file",
+							label = "SNP file",
 							buttonLabel = "Browse",
 							type = input_class,
-							placeholder = "reference.csv",
+							placeholder = fsnp,
 							accept = "csv"
 						),
 						shiny.semantic::fileInput(
-							inputId = "survey_file",
-							label = "Survey file",
+							inputId = "gen_file",
+							label = "Genotypes file",
 							buttonLabel = "Browse",
 							type = input_class,
-							placeholder = "survey.csv",
+							placeholder = fvar,
 							accept = "csv"
 						),
-						shiny.semantic::fileInput(
-							inputId = "coords_file",
-							label = "Coordinates file",
-							buttonLabel = "Browse",
-							type = input_class,
-							placeholder = "coordinates.csv",
-							accept = "csv"
-						),
-					)
-				),
-
-############### REFERENCE CHECK #######################################
-
-				semantic.dashboard::tabItem(
-					tabName = "ref_check",
-					semantic.dashboard::box(
-						title = "Combine input",
-						width = 16,
-						color = box_color,
-						collapsible = FALSE,
-						title_side = "top left",
 						shiny.semantic::button(
 							input_id = "run_ref_check",
 							label = shiny::span(shiny::icon("play"), "RUN"),
@@ -151,21 +134,21 @@ shiny_rf <- function(...) {
 							shiny::verbatimTextOutput('rf_combine'),
 							shiny::verbatimTextOutput('rf_recode')
 						)
-					)
+					)					
 				),
 
-############### REFERENCE IDENTIFICATION ##############################
 
+#### PARAMA
 				semantic.dashboard::tabItem(
-					tabName = "ref_id",
+					tabName = "parameters_tab",
 					semantic.dashboard::box(
-						title = "Varietal Identification",
+						title = "Params",
 						width = 16,
 						color = box_color,
 						collapsible = FALSE,
 						title_side = "top left",
 						shiny::fluidRow(
-							shiny::column(3,
+							shiny::column(2,
 								shiny::numericInput(
 									inputId = "ibs",
 									label = "IBS cut-off",
@@ -179,8 +162,25 @@ shiny_rf <- function(...) {
 									label = shiny::span(shiny::icon("play"), "RUN"),
 									class = "ui green button"
 								),
+								shiny::br()
+							)
+						),
+					)
+				),
+
+#### OUTPUT
+				semantic.dashboard::tabItem(
+					tabName = "results_tab",
+					semantic.dashboard::box(
+						title = "Results",
+						width = 16,
+						color = box_color,
+						collapsible = FALSE,
+						title_side = "top left",
+						shiny::fluidRow(
+							shiny::column(1,
 								shiny::br(),
-								shiny::downloadButton('download',"Save to .csv"),
+								shiny::downloadButton('download', "Save to .csv"),
 								shiny::br()
 							)
 						),
@@ -193,7 +193,7 @@ shiny_rf <- function(...) {
 ############### VISUALIZATION #########################################
 
 				semantic.dashboard::tabItem(
-					tabName = "visualization",
+					tabName = "visualization_tab",
 					semantic.dashboard::box(
 						title = "Map",
 						width = 16,
@@ -233,53 +233,58 @@ shiny_rf <- function(...) {
 		  shiny::stopApp()
 		})
 
-############### REFERENCE CHECK #######################################
+#### INPUT
 
 		shiny::observeEvent(input$run_ref_check, {
 
-			reffile = input$reference_file$datapath
-			surfile = input$survey_file$datapath
-			crdfile = input$coords_file$datapath
-			check = check_files(reffile, surfile, crdfile)
+			snpfile = input$snp_file$datapath
+			genfile = input$gen_file$datapath
+#			snpfile = fsnp
+#			genfile = fvar
+
+			check = check_files(snpfile, varfile)
 			if (check != "") {
 				output$rf_read <- shiny::renderText({check})
 				return(NULL)
 			}
 
-			ref <- try(data.table::fread(reffile))
-			if (inherits(ref, "try-error")) stop("cannot read reference file")
-			fld <- try(data.table::fread(surfile))
-			if (inherits(fld, "try-error")) stop("cannot read reference file")
-			if (!is.null(crdfile)) {
-				crd <<- try(stats::na.omit(data.frame(data.table::fread(crdfile))))
+			snps <- try(matchpoint::read_dart(snpfile))
+			if (inherits(snps, "try-error")) stop("cannot read SNP file")
+			genotypes <- try(data.table::fread(genofile))
+			if (inherits(genotypes, "try-error")) stop("cannot read genotype file")
+			markers <- matchpoint::marker_positions("")
+
+			geo <- c("dart.id", "longitude", "latitude")
+			if (geo %in% names(genotypes)) {
+				crd <<- genotypes[, geo]
 			} else {
 				crd <<- NULL
 			}
 
-			refname = input$reference_file$name
-			surname = input$survey_file$name		
-			crdname = input$coords_file$name
-			pcrd = ifelse(is.null(crdname), "not provided", crdname)
+			snpname = input$snp_file$name
+			genname = input$geno_file$name		
+
 			output$rf_read <- shiny::renderText({
-				paste0("reference  : ", refname, ", ", nrow(ref), " records\n", 
-					   "survey     : ", surname, ", ", nrow(fld), " records\n",
-					   "coordinates: ", pcrd, ", ", max(0, nrow(crd)), " records\n\n")
-			})		
-			crf <- combine_rf(ref, fld)
+				paste0("SNP        : ", snpname, ", ", nrow(snps$snp), " records\n", 
+					   "genotypes  : ", genname, ", ", nrow(genotypes), " records\n",
+					   "coordinates: ", ifelse(is.null(crd), "No", "Yes\n\n"))
+			})
+			crf <- match_IBS(snps$snp, genotypes, markers)
+
 			output$rf_combine <- shiny::renderText({
-				paste0("combined : ", nrow(crf), " records\n\n")
+				paste(paste0(names(crf), "\n"))
 			})		
-			recoded <<- recode_rf(crf, biallelic=TRUE, missflags="-")
+			recoded <<- TRUE
 			output$rf_recode <- shiny::renderText({
-				paste0("recoded successfully")
-			})		
+				"recoded successfully"
+			})
 
 		})
 ############### REFERENCE IDENTIFICATION ##############################
 
 		shiny::observeEvent(input$run_id, {
 
-			if (!exists("recoded")) {
+			if (!recoded) {
 				output$rf_id <- shiny::renderText({
 					"input has not been generated (go back one tab)"
 				})
@@ -289,9 +294,7 @@ shiny_rf <- function(...) {
 				IBS_cutoff = input$ibs
 				ibsvar <- paste0("IBS_cutoff_", IBS_cutoff, "_best_match")
 				
-				res_ID <<- try(match_rf(recoded, 
-					MAF_cutoff=0.05, SNP_mr=0.2, sample_mr=0.2, 
-					IBS_cutoff=IBS_cutoff))$IBS_cutoff_0.8_best_match
+				res_ID <<- crf$best_match
 					
 				ID_res(res_ID)
 
@@ -303,7 +306,7 @@ shiny_rf <- function(...) {
 				output$download <- shiny::downloadHandler(
 					filename = function() {"match_results.csv"},
 					content = function(fname) {
-						utils::write.csv(res_ID$IBS_cutoff_0.8_best_match, fname)
+						utils::write.csv(res_ID$best_match, fname)
 					}
 				)
 				
@@ -321,7 +324,7 @@ shiny_rf <- function(...) {
 		})
 
 		drawPoints <- function(variety) {
-			if (!exists("crd") || is.null(crd)) return(NULL)
+			if (is.null(crd)) return(NULL)
 			if (!all(c("longitude", "latitude") %in% colnames(crd))) return (NULL)
 			points <- crd[ , c("longitude", "latitude")]
 			if (variety == "all varieties") {
@@ -357,4 +360,7 @@ shiny_rf <- function(...) {
 	shiny::shinyApp(ui, server, ...)
 }
 
+
+
+shiny_IBS()
 
