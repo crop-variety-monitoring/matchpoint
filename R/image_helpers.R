@@ -31,7 +31,7 @@ prepare_dart <- function(path, outpath) {
 	intpath <- gsub("raw/dart", "intermediate", path)
 	dir.create(outpath, FALSE, TRUE)
 	
-	varinfo <- matchpoint:::get_varinfo(path)
+	varinfo <- get_varinfo(path)
 
 	crops <- list.dirs(path, full.names=FALSE)
 	crops <- crops[crops != ""]
@@ -44,7 +44,7 @@ prepare_dart <- function(path, outpath) {
 	}
 
 	for (crop in crops) {
-		print(crop); flush.console()
+		print(crop); utils::flush.console()
 		croppath <- file.path(path, crop)
 		cropf <- list.files(croppath, pattern="SNP.csv$", full.names=TRUE, ignore.case=TRUE)
 		stopifnot (length(cropf) == 1)
@@ -69,7 +69,7 @@ prepare_dart <- function(path, outpath) {
 		x$marker$MarkerName <- toupper(x$marker$MarkerName)
 		x$snp$MarkerName <- toupper(x$snp$MarkerName)
 
-		x <- x <- matchpoint:::make_dart_1row(x)
+		x <- x <- make_dart_1row(x)
 		x$type <- NULL
 		pos <- matchpoint::marker_positions(crop)
 		i <- pos$MarkerName %in% x$marker$MarkerName
@@ -125,15 +125,15 @@ prepare_dart <- function(path, outpath) {
 #		j <- which(inf$type[i] == "reference") + 3
 #		ibs_ref <- ibs[, c(1:3, j)]
 #		ibs_fld <- ibs[, -j]
-#		write.csv(ibs_ref, file.path(outpath, paste0(oname, "_IBS-ref.csv")), na="-", row.names=FALSE)
-#		write.csv(ibs_fld, file.path(outpath, paste0(oname, "_IBS-fld.csv")), na="-", row.names=FALSE)
+#		utils::write.csv(ibs_ref, file.path(outpath, paste0(oname, "_IBS-ref.csv")), na="-", row.names=FALSE)
+#		utils::write.csv(ibs_fld, file.path(outpath, paste0(oname, "_IBS-fld.csv")), na="-", row.names=FALSE)
 
 		bname <- file.path(outpath, x$order)
 
-		write.csv(x$info, paste0(bname, "_genotype-info.csv"), row.names=FALSE)
-#		write.csv(x$marker, paste0(bname, "_marker-info.csv"), row.names=FALSE)
+		utils::write.csv(x$info, paste0(bname, "_genotype-info.csv"), row.names=FALSE)
+#		utils::write.csv(x$marker, paste0(bname, "_marker-info.csv"), row.names=FALSE)
 
-		cropff <- list.files(croppath, pattern=paste0("^Report_", x$order, ".*.csv$"), ignore.case=TRUE, full=TRUE)
+		cropff <- list.files(croppath, pattern=paste0("^Report_", x$order, ".*.csv$"), ignore.case=TRUE, full.names=TRUE)
 		outff <- gsub("Report_", "", basename(cropff))
 		ok <- file.copy(cropff, file.path(outpath, outff))
 		

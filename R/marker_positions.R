@@ -29,7 +29,7 @@ marker_positions <- function(crop="") {
 	x <- do.call(rbind, x)
 	cas <- matchpoint::read_dart(fcassava)
 	pos <- data.frame(do.call(rbind, strsplit(cas$snp[,1], "_")))
-	pos <- data.frame(crop, cas$snp[,1], pos[,-1])
+	pos <- data.frame(crop="cassava", cas$snp[,1], pos[,-1])
 	colnames(pos) <- c("crop", "MarkerName", "Chr", "Pos")
 	x <- rbind(x, pos)
 	x$MarkerName <- toupper(x$MarkerName)

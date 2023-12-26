@@ -40,10 +40,10 @@ remove_unknown_samples <- function(x, dart.id, verbose=FALSE) {
 }
 
 
-get_clean_data <- function(snp, genotype, markers, filename, verbose=FALSE) {
+get_clean_data <- function(snp, genotypes, markers, filename, verbose=FALSE) {
 	snp <- remove_unknown_samples(snp, genotypes$dart.id, verbose=verbose)
 	i <- match(colnames(snp)[-1], genotypes$dart.id)
-	snp <- matchpoint:::fix_duplicate_names(snp, verbose=verbose)
+	snp <- fix_duplicate_names(snp, verbose=verbose)
 	cns <- colnames(snp)[-1]
 	ref.id <- cns[genotypes$reference[i]]
 	field.id <- cns[!genotypes$reference[i]]
@@ -56,24 +56,23 @@ get_clean_data <- function(snp, genotype, markers, filename, verbose=FALSE) {
 	markers <- markers[imark, ]
 	markers$Chr[is.na(markers$Chr)] <- ""
 	markers$Pos[is.na(markers$Pos)] <- ""
-	filename <- matchpoint:::fix_filename(filename)
+	filename <- fix_filename(filename)
 	list(snp=snp, markers=markers, ref.id=ref.id, field.id=field.id, filename=filename)
 }
 
 
 
-dart_IBS <- function(snps, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0.2, 
+match_IBS <- function(SNPs, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0.2, 
 				Ref_Missing_Rate=0.2, Sample_Missing_Rate=0.2, 
 				Ref_Heterozygosity_Rate=0.1, Sample_Heterozygosity_Rate=0.1,
 				IBS_cutoff=0.5, Inb_method="mom.visscher", 
 				threads=1, verbose=FALSE, filename="") {
 
 
-	input <- matchpoint:::get_clean_data(snps, genotypes, markers, filename=filename, verbose=verbose)
-
+	input <- get_clean_data(SNPs, genotypes, markers, filename=filename, verbose=verbose)
 	
-	meta1 <- data.frame(Metric=c("Marker Total Ref", "Marker Total Sample",	"Marker Common"), 
-						Value=c(length(input$ref.id), length(input$field.id), nrow(input$snp)))
+	meta1 <- data.frame(metric=c("n references", "n samples", "n markers"), 
+						value=c(length(input$ref.id), length(input$field.id), nrow(input$snp)))
 	
 	### recode SNP to be the number of A alleles
 	# There are four possible values stored in the variable genotype: 0, 1, 2 and 3.
@@ -128,8 +127,8 @@ dart_IBS <- function(snps, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate
 	rf <- as.data.frame(rm)
 	#r0 <- subset(rf, rm <= Ref_Missing_Rate)
 	meta2 <- data.frame(
-		Metric=c("Marker MAF Cutoff", "Marker Missing Cutoff", "Marker Final", "Marker Final Coverage", "Field Sample Total", "Field Sample Missing Cutoff", "Field Final", "Reference Sample Total", "Reference Sample Missing Cutoff", "Reference Final"), 
-		Value=c(MAF_cutoff, SNP_Missing_Rate, nrow(d0), ".", length(input$field.id), Sample_Missing_Rate, sum(fld$sm <= Sample_Missing_Rate), length(input$ref.id), Ref_Missing_Rate, sum(fld$sm <= Sample_Missing_Rate))
+		metric=c("Marker MAF Cutoff", "Marker Missing Cutoff", "Marker Final", "Marker Final Coverage", "Field Sample Total", "Field Sample Missing Cutoff", "Field Final", "Reference Sample Total", "Reference Sample Missing Cutoff", "Reference Final"), 
+		value=c(MAF_cutoff, SNP_Missing_Rate, nrow(d0), ".", length(input$field.id), Sample_Missing_Rate, sum(fld$sm <= Sample_Missing_Rate), length(input$ref.id), Ref_Missing_Rate, sum(fld$sm <= Sample_Missing_Rate))
 	)
 	
 	# calculate inbreeding coefficient and then heterozygosity for field data
@@ -174,8 +173,8 @@ dart_IBS <- function(snps, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate
 	rf$drp <- rf$drp_miss | rf$drp_het
 
 	meta3 <- data.frame(
-		Metric=c("Sample Het Avg", "Sample Het SD", "Sample Het Max", "Sample Het Min", "Ref Heterozygosity Cutoff", "Sample Heterozygosity Cutoff"), 
-		Value=c(mean(ic1$h), sd(ic1$h), max(ic1$h), min(ic1$h),								Ref_Heterozygosity_Rate, Sample_Heterozygosity_Rate)
+		metric=c("Sample Het Avg", "Sample Het SD", "Sample Het Max", "Sample Het Min", "Ref Heterozygosity Cutoff", "Sample Heterozygosity Cutoff"), 
+		value=c(mean(ic1$h), stats::sd(ic1$h), max(ic1$h), min(ic1$h), Ref_Heterozygosity_Rate, Sample_Heterozygosity_Rate)
 	)
 	meta <- rbind(meta1, meta2, meta3)
 	outlist <- list(metadata=meta)
@@ -211,15 +210,16 @@ dart_IBS <- function(snps, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate
 	outlist[[paste0("IBS_", IBS_cutoff)]] <- d
 		
 	nr <- as.data.frame(table(field_id=d$field_id))
-	rept <- aggregate(d[, "IBS", drop=FALSE], d[, "field_id", drop=FALSE], 
-			\(i) c(mean(i, na.rm=TRUE), sd(i, na.rm=TRUE), length(na.omit(i))))
+	rept <- stats::aggregate(d[, "IBS", drop=FALSE], d[, "field_id", drop=FALSE], 
+			\(i) c(mean(i, na.rm=TRUE), stats::sd(i, na.rm=TRUE), length(stats::na.omit(i))))
 	rept <- data.frame(rept[1], rept[[2]])
 	colnames(rept)[-1] <- c("avg", "sd", "nr")
 
 	meta4 <- data.frame(
-		Metric = paste0(c("Samples with match using IBS=", "Avg number matches per sample using IBS=", "Avg of IBS value with IBS=", "SD of IBS value with IBS="), IBS_cutoff), 
-		Value = c(nrow(rept), mean(rept$nr), mean(rept$avg, na.rm=TRUE), mean(rept$sd, na.rm=TRUE) ))
-	meta <- rbind(meta, meta4)
+		metric = paste0(c("Samples with match using IBS=", "Avg number matches per sample using IBS=", "Avg of IBS value with IBS=", "SD of IBS value with IBS="), IBS_cutoff), 
+		value = c(nrow(rept), mean(rept$nr), mean(rept$avg, na.rm=TRUE), mean(rept$sd, na.rm=TRUE) ))
+		
+	outlist$meta <- rbind(outlist$meta, meta4)
 
 	outlist[["similarity"]] <- out2
 	out1 <- data.frame(ID=colnames(out1), 1-out1, check.names=FALSE)

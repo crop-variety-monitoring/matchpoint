@@ -1,6 +1,6 @@
 export(
 # shiny_rf, 
-read_dart, make_dart_1row, dart_IBS, marker_positions
+read_dart, make_dart_1row, match_IBS, marker_positions
 )
 
 
