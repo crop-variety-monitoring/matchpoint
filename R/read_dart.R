@@ -1,7 +1,7 @@
 
 read_dart <- function(filename) {
 
-	r <- data.frame(data.table::fread(filename), check.names=FALSE)
+	r <- data.frame(data.table::fread(filename, header=FALSE), check.names=FALSE)
 	ordname <- gsub("^Report_", "", basename(filename))
 	ordname <- gsub("\\_SNP.csv$", "", ordname)
 
@@ -14,6 +14,8 @@ read_dart <- function(filename) {
 	colnames(marker) <- r[srow, 1:(scol-1)]
 
 	hdr <- data.frame(t(r[1:srow, scol:ncol(r)]))
+	nc <- min(7, ncol(hdr))
+	colnames(hdr)[1:nc] <- c("order", "plate_barcode", "sample_reproducibility", "extract_row", "extract_col", "extract_plate", "genotype")[1:nc]
 
 	d <- as.matrix(r[(srow+1):nrow(r), scol:ncol(r)])
 	v <- as.vector(d)

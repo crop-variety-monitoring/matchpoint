@@ -55,12 +55,13 @@ list
 }
 
 \examples{
-\dontrun{
-fsnps <- system.file("ex/dart.csv", package="matchpoint")
-fvars <- system.file("ex/vars.csv", package="matchpoint")
-snps <- matchpoint::read_dart(fdart)
-genotypes <- data.table::fread(finfo)
+fsnp <- system.file("ex/DCas00-0000_SNP.csv", package="matchpoint")
+fvar <- system.file("ex/DCas00-0000_genotype-info.csv", package="matchpoint")
+snps <- matchpoint::read_dart(fsnp)
+genotypes <- data.table::fread(fvar)
 markers <- matchpoint::marker_positions("")
 out <- match_IBS(snps$snp, genotypes, markers)
-}
+
+names(out)
+head(out$best_match)
 }
