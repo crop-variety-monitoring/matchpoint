@@ -222,8 +222,8 @@ dart_IBS <- function(snps, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate
 	meta <- rbind(meta, meta4)
 
 	outlist[["similarity"]] <- out2
-	out <- data.frame(ID=colnames(out1), 1-out1, check.names=FALSE)
-	rownames(out) <- NULL
+	out1 <- data.frame(ID=colnames(out1), 1-out1, check.names=FALSE)
+	rownames(out1) <- NULL
 	outlist[["distance"]] <- out1
 	outlist[["snpinfo"]] <- snpinfo
 	colnames(rf)[1] <- "ref_id"
