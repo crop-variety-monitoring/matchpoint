@@ -23,7 +23,7 @@ match_IBS(SNPs, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0.2,
 \item{SNPs}{\code{data.frame} with the DArT SNP marker data. Rows are genotypes. The first column has should be called \code{"MarkerName"} and have the SNP marker names. The other columns have the marker values that DArT uses: \code{0, 1, 2, NA} . 
 }
 
-\item{genotypes}{\code{data.frame} with data linking the (dart) IDs (the column names in \code{SNPs}) to variety or field IDS. Column names must include \code{"dart.id", "field.id", "variety", "reference"}. Columns in \code{SNPs} with a name that is not matched by \code{genotype$dart.id} are removed from the analysis}
+\item{genotypes}{\code{data.frame} with data linking the (dart) IDs (the column names in \code{SNPs}) to variety or field IDS. Column names must include \code{"plate.id", "field.id", "genotype", "reference"}. "plate.id" should match the ID for a genotype ("TargetID") in the \code{SNPs} data. \code{"genotype"} should have a value (name) for the reference samples. \code{reference} has logical values that should be \code{TRUE} for the reference samples and \code{FALSE} for the field samples. Columns in \code{SNPs} with a name that is not matched by \code{"plate.id"} are removed from the analysis}
 
 \item{markers}{\code{data.frame} with at least these three columns: \code{"MarkerName", "Chr", "Pos"} that store chromosome number and position for each SNP. You can get these with \code{\link{marker_positions}} for a number of crops}
 

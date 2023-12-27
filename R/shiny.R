@@ -242,7 +242,7 @@ shiny_IBS <- function(...) {
 #			snpfile = fsnp
 #			genfile = fvar
 
-			check = check_files(snpfile, varfile)
+			check = check_files(snpfile, genfile)
 			if (check != "") {
 				output$rf_read <- shiny::renderText({check})
 				return(NULL)
@@ -250,7 +250,7 @@ shiny_IBS <- function(...) {
 
 			snps <- try(matchpoint::read_dart(snpfile))
 			if (inherits(snps, "try-error")) stop("cannot read SNP file")
-			genotypes <- try(data.table::fread(genofile))
+			genotypes <- try(data.table::fread(genfile))
 			if (inherits(genotypes, "try-error")) stop("cannot read genotype file")
 			markers <- matchpoint::marker_positions("")
 

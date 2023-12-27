@@ -1,19 +1,19 @@
 \name{shiny}
 
-\alias{shiny_rf}
+\alias{shiny_IBS}
 
 
 \title{
-Launch Shiny interface
+Launch IBS Shiny interface
 }
 
 \description{
-Launch Shiny interface
+Launch IBS Shiny interface
 }
 
 
 \usage{
-shiny_rf(...)
+shiny_IBS (...)
 }
  
 \arguments{

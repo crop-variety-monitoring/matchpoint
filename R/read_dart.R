@@ -5,18 +5,19 @@ read_dart <- function(filename) {
 	ordname <- gsub("^Report_", "", basename(filename))
 	ordname <- gsub("\\_SNP.csv$", "", ordname)
 
-	x <- r[2:15, 1:30]
-	x[x != "*"] <- NA
-	srow <- which(apply(x, 1, \(i) all(is.na(i))))[1] + 1
-	scol <- which(apply(x, 2, \(i) all(is.na(i))))[1]
+	srow <- sum(r[1:30, 1] == "*") + 1
+	scol <- sum(r[1, 1:50] == "*") + 1
 
 	marker <- r[(srow+1):nrow(r), 1:(scol-1), ]
 	colnames(marker) <- r[srow, 1:(scol-1)]
 
 	hdr <- data.frame(t(r[1:srow, scol:ncol(r)]))
-	nc <- min(7, ncol(hdr))
-	colnames(hdr)[1:nc] <- c("order", "plate_barcode", "sample_reproducibility", "extract_row", "extract_col", "extract_plate", "genotype")[1:nc]
-
+	if (ncol(hdr) == 7) {
+		colnames(hdr) <- c("order", "plate_barcode", "sample_reproducibility", "extract_row", "extract_col", "extract_plate", "TargetID")
+	} else 	if (ncol(hdr) == 8) {
+		colnames(hdr) <- c("order", "plate_barcode", "sample_reproducibility", "extract_row", "extract_col", "extract_plate", "TargetID", "genotype")
+	}
+	
 	d <- as.matrix(r[(srow+1):nrow(r), scol:ncol(r)])
 	v <- as.vector(d)
 	v[v == "-"] <- NA

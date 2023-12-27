@@ -7,11 +7,8 @@ fake_it <- function(dart_file, outdir=".") {
 	r1 <- data.frame(data.table::fread(dart_file, header=FALSE), check.names=FALSE)
 	r2 <- data.frame(data.table::fread(dart_file2, header=FALSE), check.names=FALSE)
 
-	x <- r1[2:15, 1:30]
-	x[x != "*"] <- NA
-	srow <- which(apply(x, 1, \(i) all(is.na(i))))[1] + 1
-	scol <- which(apply(x, 2, \(i) all(is.na(i))))[1]
-
+	srow <- sum(r1[1:30, 1] == "*") + 1
+	scol <- sum(r1[1, 1:50] == "*") + 1
 
 	take_anon_sample <- function(x, sid, nc=16) {
 		y <- x[(srow+1):nrow(x), 1:nc]
@@ -29,7 +26,7 @@ fake_it <- function(dart_file, outdir=".") {
 	geno_file <- gsub("SNP.csv$", "genotype-info.csv", dart_file)
 	geno <- data.frame(data.table::fread(geno_file), check.names=FALSE)
 	geno <- geno[sample(nrow(geno)), ]
-	k <- match(geno$dart.id, r1[7,])
+	k <- match(geno$plate.id, r1[7,])
 	geno <- geno[!is.na(k), ]
 
 	i <- geno$variety == ""
@@ -45,7 +42,7 @@ fake_it <- function(dart_file, outdir=".") {
 	ss <- grep("undetermined", gg$field.id)
 	s <- unique(c(s, ss))
 
-	remid <- gg$dart.id[s]
+	remid <- gg$plate.id[s]
 	smpls <- unlist(r1[srow,])
 	j <- smpls %in% remid
 
@@ -75,14 +72,14 @@ get_varinfo <- function(path) {
 	}
 	fld <- as.data.frame(readxl::read_excel(ffld, 2))[, c("crop", "dart.id", "planting.barcode")]
 	fld$planting.barcode <- gsub(".jpg", "", fld$planting.barcode)
-	colnames(fld)[3] <- "field.id"
-	fld$variety <- ""
+	colnames(fld)[2:3] <- c("plate.id", "field.id")
+	fld$genotype <- ""
 	fld$reference <- FALSE
 	
 	fref <- list.files(path, pattern="inventory", full.names=TRUE)
 	fref <- fref[substr(basename(fref), 1, 2) != "~$"]
 	ref <- as.data.frame(readxl::read_excel(fref, 2))[, c("crop", "dart.id", "var.name.full")]
-	colnames(ref)[3] <- "variety"
+	colnames(ref)[2:3] <- c("plate.id", "genotype")
 	ref$field.id <- ""
 	ref$reference <- TRUE
 	
@@ -163,7 +160,7 @@ prepare_dart <- function(path, outpath) {
 
 #		ibs <- merge(x$marker[, 1:3], x$snp, all=TRUE)
 		dartnms <- gsub("_D.$", "", colnames(x$snp)[-1])
-		refnms <- as.character(inf[inf$crop == crop, "dart.id"])
+		refnms <- as.character(inf[inf$crop == crop, "plate.id"])
 		i <- match(dartnms, refnms)
 
 #		write.csv(ibs[, c(1:3, which(!is.na(i))+3)], file.path(outpath, paste0(oname, "_IBS.csv")), na="", row.names=FALSE)
