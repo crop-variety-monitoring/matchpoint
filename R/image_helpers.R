@@ -1,7 +1,8 @@
 
 fake_it <- function(dart_file, outdir=".") {
-#  dart_file <- "input/NGA/DCas23-7954_SNP.csv"
-#  outdir <- "C:/github/cropvarmon/matchpoint/inst/ex"
+
+  dart_file <- "input/NGA/DCas23-7954_SNP.csv"
+  outdir <- "C:/github/cropvarmon/matchpoint/inst/ex"
 	
 	dart_file2 <- gsub(".csv$", "_2row.csv", dart_file)
 	r1 <- data.frame(data.table::fread(dart_file, header=FALSE), check.names=FALSE)
@@ -29,10 +30,10 @@ fake_it <- function(dart_file, outdir=".") {
 	k <- match(geno$plate.id, r1[7,])
 	geno <- geno[!is.na(k), ]
 
-	i <- geno$variety == ""
+	i <- geno$genotype == ""
 	g <- geno[!i, ]
-	g$variety <- paste0("variety_", 1:nrow(g))
-	g <- g[gtools::mixedorder(g$variety), ]
+	g$genotype <- paste0("var_", 1:nrow(g))
+	g <- g[gtools::mixedorder(g$genotype), ]
 
 	gg <- geno[i, ]
 	gg$longitude <- round(gg$longitude + stats::runif(nrow(gg), -0.5, 0.5), 2) 
