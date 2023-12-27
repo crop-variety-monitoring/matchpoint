@@ -95,7 +95,7 @@ prepare_dart <- function(path, outpath) {
 	intpath <- gsub("raw/dart", "intermediate", path)
 	dir.create(outpath, FALSE, TRUE)
 	
-	varinfo <- get_varinfo(path)
+	varinfo <- matchpoint:::get_varinfo(path)
 
 	crops <- list.dirs(path, full.names=FALSE)
 	crops <- crops[crops != ""]
@@ -111,9 +111,15 @@ prepare_dart <- function(path, outpath) {
 		print(crop); utils::flush.console()
 		croppath <- file.path(path, crop)
 		cropf <- list.files(croppath, pattern="SNP.csv$", full.names=TRUE, ignore.case=TRUE)
-		stopifnot (length(cropf) == 1)
-		
+		stopifnot(length(cropf) == 1)
+		countf <- list.files(croppath, pattern="Counts.csv$", full.names=TRUE, ignore.case=TRUE)
+		stopifnot(length(countf) == 1)
+
 		x <- matchpoint::read_dart(cropf) 
+		cnts <- matchpoint::read_dart(countf) 
+		i <- match(cnts$geno$genotype, x$geno$genotype)
+		x$geno$TargetID <- cnts$geno$TargetID[i]
+		
 		colnames(x$marker)[colnames(x$marker) == "AlleleID"] <- "MarkerName"
 		colnames(x$snp)[colnames(x$snp) == "AlleleID"] <- "MarkerName"
 		cn <- colnames(x$snp)
@@ -133,8 +139,9 @@ prepare_dart <- function(path, outpath) {
 		x$marker$MarkerName <- toupper(x$marker$MarkerName)
 		x$snp$MarkerName <- toupper(x$snp$MarkerName)
 
-		x <- x <- make_dart_1row(x)
+		x <- matchpoint::make_dart_1row(x)
 		x$type <- NULL
+
 		pos <- matchpoint::marker_positions(crop)
 		i <- pos$MarkerName %in% x$marker$MarkerName
 		#j <- !(x$marker$MarkerName %in% pos$MarkerName )
@@ -157,6 +164,9 @@ prepare_dart <- function(path, outpath) {
 			stopifnot(nrow(inf) == n)
 			inf <- inf[, c(names(varinfo), c("longitude", "latitude"))]
 		}
+
+		i <- match(inf$plate.id, cnts$geno$genotype)
+		inf$TargetID <- cnts$geno$TargetID[i]
 		x$info <- inf
 
 #		ibs <- merge(x$marker[, 1:3], x$snp, all=TRUE)

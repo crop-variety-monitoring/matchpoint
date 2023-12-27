@@ -13,9 +13,9 @@ read_dart <- function(filename) {
 
 	hdr <- data.frame(t(r[1:srow, scol:ncol(r)]))
 	if (ncol(hdr) == 7) {
-		colnames(hdr) <- c("order", "plate_barcode", "sample_reproducibility", "extract_row", "extract_col", "extract_plate", "TargetID")
+		colnames(hdr) <- c("order", "plate_barcode", "sample_reproducibility", "extract_row", "extract_col", "extract_plate", "genotype")
 	} else 	if (ncol(hdr) == 8) {
-		colnames(hdr) <- c("order", "plate_barcode", "sample_reproducibility", "extract_row", "extract_col", "extract_plate", "TargetID", "genotype")
+		colnames(hdr) <- c("order", "plate_barcode", "sample_reproducibility", "extract_row", "extract_col", "extract_plate", "genotype", "TargetID")
 	}
 	
 	d <- as.matrix(r[(srow+1):nrow(r), scol:ncol(r)])
