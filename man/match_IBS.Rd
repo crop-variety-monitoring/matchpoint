@@ -3,17 +3,17 @@
 \alias{match_IBS}
 
 \title{
-Match field samples to reference with a dart 1-row SNP file and IBS
+Use Identity-By-State with SNP data to match field samples to references
 }
 
 \description{
-Use Identity-By-State (IBS) to match SNP data from field samples to references
+Use Identity-By-State (IBS) with SNP data to match field samples to references
 }
 
 \usage{
 match_IBS(SNPs, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0.2, 
 		Ref_Missing_Rate=0.2, Sample_Missing_Rate=0.2, 
-		Ref_Heterozygosity_Rate=0.1, Sample_Heterozygosity_Rate=0.1,
+		Ref_Heterozygosity_Rate=1, Sample_Heterozygosity_Rate=1,
 		IBS_cutoff=0.5, Inb_method="mom.visscher", 
 		threads=1, verbose=FALSE, filename="")
 }
@@ -29,13 +29,13 @@ match_IBS(SNPs, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0.2,
 
 \item{MAF_cutoff}{numeric. Minor Allele Frequency cutoff. Only use makers with a MAF of at least this value. A SNP minor allele frequency of 0.05 is often used in the literature}
 
-\item{SNP_Missing_Rate}{numeric. Markers with a higher missing rate are not used. A SNP missing rate 0.9 is a low threshold, 0.2 is a high threshold}
+\item{SNP_Missing_Rate}{numeric. Markers with a higher missing rate are not used. The default value of 0.2 is a stringent threshold}
 
 \item{Ref_Missing_Rate}{numeric. Reference missing rate threshold}
 
-\item{Ref_Heterozygosity_Rate}{numeric. Reference heterozygosity rate threshold}
+\item{Ref_Heterozygosity_Rate}{numeric. Currently ignored! Reference heterozygosity rate threshold}
 
-\item{Sample_Heterozygosity_Rate}{numeric. Reference heterozygosity rate threshold}
+\item{Sample_Heterozygosity_Rate}{numeric. Currently ignored! Reference heterozygosity rate threshold}
 
 \item{Sample_Missing_Rate}{numeric. Sample missing rate threshold }
 
@@ -56,11 +56,11 @@ list
 
 \examples{
 fsnp <- system.file("ex/DCas00-0000_SNP.csv", package="matchpoint")
-fvar <- system.file("ex/DCas00-0000_genotype-info.csv", package="matchpoint")
+fvar <- system.file("ex/DCas00-0000_variety-info.csv", package="matchpoint")
 snps <- matchpoint::read_dart(fsnp)
 genotypes <- data.table::fread(fvar)
 markers <- matchpoint::marker_positions("")
-out <- match_IBS(snps$snp, genotypes, markers)
+out <- matchpoint::match_IBS(snps$snp, genotypes, markers)
 
 names(out)
 head(out$best_match)

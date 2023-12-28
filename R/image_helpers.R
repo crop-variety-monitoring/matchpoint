@@ -1,8 +1,18 @@
 
+assign_info <- function(filename) {
+	info <- read.csv(filename)
+	out <- info["TargetID"]
+	out$Genotype <- info$sample
+	out$RefType <- info$variety
+	out$SampleType <- ifelse(info$reference, NA, "field")
+	out
+}	
+
+
 fake_it <- function(dart_file, outdir=".") {
 
-  dart_file <- "input/NGA/DCas23-7954_SNP.csv"
-  outdir <- "C:/github/cropvarmon/matchpoint/inst/ex"
+#  dart_file <- "input/NGA/DCas23-7954_SNP.csv"
+#  outdir <- "C:/github/cropvarmon/matchpoint/inst/ex"
 	
 	dart_file2 <- gsub(".csv$", "_2row.csv", dart_file)
 	r1 <- data.frame(data.table::fread(dart_file, header=FALSE), check.names=FALSE)
@@ -213,7 +223,6 @@ prepare_dart <- function(path, outpath) {
 		
 		x$order <- NULL
 		writexl::write_xlsx(x, paste0(bname, ".xlsx"), format_headers=FALSE)
-
 	}
 }
 
