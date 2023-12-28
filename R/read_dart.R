@@ -104,7 +104,34 @@ make_dart_2row <- function(x) {
 	a <- do.call(rbind, a)
 	a <- data.frame(rep(d[,1], each=2), as.vector(t(e[,2:3])), a)
 	names(a) <- c("MarkerName", "AlleleSequence", names(d)[-1])
-
 }
 
 
+
+
+dart_make_unique <- function(x) {
+	n <- length(x$geno$genotype)
+	if (n == length(unique(x$geno$genotype))) {
+		x$geno$genotype <- make_unique_ids(x$geno$genotype)
+		colnames(x$snp) <- make_unique_ids(colnames(x$snp))
+	}
+	if (x$type == "counts") {
+		if (!is.null(x$geno$TargetID)) {
+			x$geno$TargetID <- make_unique_ids(x$geno$TargetID)
+		}	
+	}
+	x
+}
+
+
+write_dart <- function(x, filename) {
+	idcols <- 1:2
+	s <- cbind(x$marker, x$snp[, -idcols])
+	g <- t(x$geno)
+	d <- abs(dim(g) - c(0, ncol(s)))
+	g <- cbind(matrix("*", d[1], d[2]), g)
+	colnames(s) <- paste0("X", 1:ncol(s))
+	colnames(g) <- paste0("X", 1:ncol(g))
+	gs <- rbind(g, s)
+	write.table(gs, filename, na="-", col.names=FALSE, row.names=FALSE, sep=",")
+}

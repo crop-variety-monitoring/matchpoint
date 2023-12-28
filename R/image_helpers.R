@@ -1,4 +1,19 @@
 
+make_unique_ids <- function(x) {
+	tab <- table(x)
+	dups <- tab[tab > 1]
+	if (length(dups) > 0) {
+		message("adding _Dn to duplicates")
+		for (i in 1:length(dups)) {
+			n <- dups[i]
+			nm <- names(n)
+			x[x == nm] <- paste0(nm, "_D", 1:n)
+		}
+	}
+	x
+}
+
+
 assign_info <- function(filename) {
 	info <- read.csv(filename)
 	out <- info["TargetID"]
@@ -7,6 +22,19 @@ assign_info <- function(filename) {
 	out$SampleType <- ifelse(info$reference, NA, "field")
 	out
 }	
+
+
+assign_write_excel <- function(x, info, filename) {
+	nms <- names(x$res_full)
+	resfull = do.call(rbind, lapply(1:length(x$res_full), 
+				\(i) data.frame(field_TID=nms[i], x$res_full[[i]])))
+	colnames(resfull)[1:3] <- c("field_Tid", "ref_Tid", "ref_sample")
+	info <- info[,c("TargetID", "Genotype")]
+	colnames(info)[2] <- "fld_sample"
+	x[[2]] <- merge(resfull, info, by=1)
+	writexl::write_xlsx(x[1:2], paste0(filename, ".xlsx"))
+}
+
 
 
 fake_it <- function(dart_file, outdir=".") {
@@ -81,19 +109,30 @@ get_varinfo <- function(path) {
 	if (length(ffld) == 0) {
 		stop("no identifier file found. Check path?")
 	}
-	fld <- as.data.frame(readxl::read_excel(ffld, 2))[, c("crop", "dart.id", "planting.barcode")]
+	fld <- as.data.frame(readxl::read_excel(ffld, 2))
 	fld$planting.barcode <- gsub(".jpg", "", fld$planting.barcode)
-	colnames(fld)[2:3] <- c("sample", "inventory")
+	if ("order.id" %in% names(fld)) {
+		fld <- fld[, c("crop", "order.id", "dart.id", "planting.barcode")]
+		colnames(fld)[2:4] <- c("order", "sample", "inventory")
+	} else {
+		fld <- fld[, c("crop", "dart.id", "planting.barcode")]
+		colnames(fld)[2:3] <- c("sample", "inventory")	
+	}
 	fld$variety <- ""
 	fld$reference <- FALSE
 	
 	fref <- list.files(path, pattern="inventory", full.names=TRUE)
 	fref <- fref[substr(basename(fref), 1, 2) != "~$"]
-	ref <- as.data.frame(readxl::read_excel(fref, 2))[, c("crop", "dart.id", "var.name.full")]
-	colnames(ref)[2:3] <- c("sample", "variety")
+	ref <- as.data.frame(readxl::read_excel(fref, 2))
+	if ("order.id" %in% names(ref)) {
+		ref <- ref[, c("crop", "order.id", "dart.id", "var.name.full")]
+		colnames(ref)[2:4] <- c("order", "sample", "variety")
+	} else {
+		ref <- ref[, c("crop", "dart.id", "var.name.full")]
+		colnames(ref)[2:3] <- c("sample", "variety")	
+	}
 	ref$inventory <- ""
 	ref$reference <- TRUE
-	
 	fldref <- rbind(fld, ref)
 	fldref$crop <- tolower(fldref$crop)
 	unique(fldref)	
@@ -127,24 +166,15 @@ prepare_dart <- function(path, outpath) {
 
 		x <- matchpoint::read_dart(cropf) 
 		cnts <- matchpoint::read_dart(countf) 
-		i <- match(cnts$geno$genotype, x$geno$genotype)
-		x$geno$TargetID <- cnts$geno$TargetID[i]
-		
+		if (is.null(cnts$geno$TargetID)) {  # ETH teff
+			x$geno$TargetID <- NA
+		} else {
+			i <- match(cnts$geno$genotype, x$geno$genotype)
+			x$geno$TargetID <- cnts$geno$TargetID[i]
+		}
 		colnames(x$marker)[colnames(x$marker) == "AlleleID"] <- "MarkerName"
 		colnames(x$snp)[colnames(x$snp) == "AlleleID"] <- "MarkerName"
-		cn <- colnames(x$snp)
-		tab <- table(cn)
-		dups <- tab[tab > 1]
-		if (length(dups) > 0) {
-			message("adding _D1 _D2 to duplicates")
-			for (i in 1:length(dups)) {
-				n <- dups[i]
-				stopifnot(n == 2)
-				nm <- names(n)
-				cn[cn == nm] <- paste0(nm, c("_D1", "_D2"))
-			}
-			colnames(x$snp) <- cn
-		}
+		colnames(x$snp) <- make_unique_ids(colnames(x$snp))
 		
 		x$marker$MarkerName <- toupper(x$marker$MarkerName)
 		x$snp$MarkerName <- toupper(x$snp$MarkerName)
@@ -168,16 +198,25 @@ prepare_dart <- function(path, outpath) {
 		x$marker <- m
 
 		inf <- varinfo[varinfo$crop == crop, ]
+	
 		if (!is.null(loc)) {
 			n <- nrow(inf)
 			inf <- merge(inf, loc, by="inventory", all.x=TRUE)
 			stopifnot(nrow(inf) == n)
 			inf <- inf[, c(names(varinfo), c("longitude", "latitude"))]
 		}
-
-		#i <- match(inf$sample, cnts$geno$genotype)
-		#inf$TargetID <- cnts$geno$TargetID[i]
-		x$info <- merge(inf, x$geno, by.x="sample", by.y="genotype", all.x=TRUE)
+		
+		if ("order" %in% names(inf)) {
+			x$info <- merge(inf, x$geno, by.x=c("order", "sample"), by.y=c("order", "genotype"))
+			if (nrow(unique(x$info[, c("order", "sample")])) != nrow(x$info)) {
+				message("infofile order/sample numbers are not unique")
+			}
+		} else {
+			x$info <- merge(inf, x$geno, by.x="sample", by.y="genotype")
+			if (length(unique(x$info$sample)) != nrow(x$info)) {
+				message("infofile sample numbers are not unique")
+			}		
+		}
 
 #		ibs <- merge(x$marker[, 1:3], x$snp, all=TRUE)
 		dartnms <- gsub("_D.$", "", colnames(x$snp)[-1])

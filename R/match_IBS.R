@@ -180,7 +180,7 @@ match_IBS <- function(SNPs, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rat
 
 
 	SNPRelate::snpgdsClose(genofile)
-	
+
 	out_all <- round(ibs[[3]], 4)
 	colnames(out_all) <- rownames(out_all) <- ibs[[1]]
 	i <- which(colnames(out_all) %in% input$ref.id)
@@ -231,6 +231,7 @@ match_IBS <- function(SNPs, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rat
 	if (input$filename != "") {
 		xlsx <- paste0(input$filename, "_IBS.xlsx")
 		writexl::write_xlsx(output, xlsx, format_headers=FALSE)
+		saveRDS(ibs, paste0(input$filename, "_IBS.rds"))
 		invisible(output)
 	} else {
 		output$gds <- input$gds
