@@ -24,26 +24,26 @@ fake_it <- function(dart_file, outdir=".") {
 	r1 <- take_anon_sample(r1, sid, scol-1)
 	r2 <- take_anon_sample(r2, sid, scol)
 
-	geno_file <- gsub("SNP.csv$", "genotype-info.csv", dart_file)
+	geno_file <- gsub("SNP.csv$", "variety-info.csv", dart_file)
 	geno <- data.frame(data.table::fread(geno_file), check.names=FALSE)
 	geno <- geno[sample(nrow(geno)), ]
-	k <- match(geno$plate.id, r1[7,])
+	k <- match(geno$sample, r1[7,])
 	geno <- geno[!is.na(k), ]
 
-	i <- geno$genotype == ""
+	i <- geno$variety == ""
 	g <- geno[!i, ]
-	g$genotype <- paste0("var_", 1:nrow(g))
-	g <- g[gtools::mixedorder(g$genotype), ]
+	g$variety <- paste0("var_", 1:nrow(g))
+	g <- g[gtools::mixedorder(g$variety), ]
 
 	gg <- geno[i, ]
 	gg$longitude <- round(gg$longitude + stats::runif(nrow(gg), -0.5, 0.5), 2) 
 	gg$latitude <- round(gg$latitude + stats::runif(nrow(gg), -0.5, 0.5), 2) 
 
 	s <- sample(nrow(gg)/2)
-	ss <- grep("undetermined", gg$field.id)
+	ss <- grep("undetermined", gg$inventory)
 	s <- unique(c(s, ss))
 
-	remid <- gg$plate.id[s]
+	remid <- gg$sample[s]
 	smpls <- unlist(r1[srow,])
 	j <- smpls %in% remid
 
@@ -51,11 +51,11 @@ fake_it <- function(dart_file, outdir=".") {
 	r2s <- r2[, !j[-1]]
 	gs <- gg[-s,]
 	
-	gs$field.id <- as.integer(as.factor(gs$field.id))
+	gs$inventory <- as.integer(as.factor(gs$inventory))
 
 	gen <- rbind(g, gs)
 
-	utils::write.csv(gen, file.path(outdir, "DCas00-0000_genotype-info.csv"), row.names=FALSE, na="")
+	utils::write.csv(gen, file.path(outdir, "DCas00-0000_variety-info.csv"), row.names=FALSE, na="")
 
 	utils::write.table(r1s, file.path(outdir, "DCas00-0000_SNP.csv"), row.names=FALSE, col.names=FALSE, na="", sep=",")
 	utils::write.table(r2s, file.path(outdir, "DCas00-0000_SNP_2row.csv"), row.names=FALSE, col.names=FALSE, na="", sep=",")
@@ -73,15 +73,15 @@ get_varinfo <- function(path) {
 	}
 	fld <- as.data.frame(readxl::read_excel(ffld, 2))[, c("crop", "dart.id", "planting.barcode")]
 	fld$planting.barcode <- gsub(".jpg", "", fld$planting.barcode)
-	colnames(fld)[2:3] <- c("plate.id", "field.id")
-	fld$genotype <- ""
+	colnames(fld)[2:3] <- c("sample", "inventory")
+	fld$variety <- ""
 	fld$reference <- FALSE
 	
 	fref <- list.files(path, pattern="inventory", full.names=TRUE)
 	fref <- fref[substr(basename(fref), 1, 2) != "~$"]
 	ref <- as.data.frame(readxl::read_excel(fref, 2))[, c("crop", "dart.id", "var.name.full")]
-	colnames(ref)[2:3] <- c("plate.id", "genotype")
-	ref$field.id <- ""
+	colnames(ref)[2:3] <- c("sample", "variety")
+	ref$inventory <- ""
 	ref$reference <- TRUE
 	
 	fldref <- rbind(fld, ref)
@@ -160,18 +160,18 @@ prepare_dart <- function(path, outpath) {
 		inf <- varinfo[varinfo$crop == crop, ]
 		if (!is.null(loc)) {
 			n <- nrow(inf)
-			inf <- merge(inf, loc, by="field.id", all.x=TRUE)
+			inf <- merge(inf, loc, by="inventory", all.x=TRUE)
 			stopifnot(nrow(inf) == n)
 			inf <- inf[, c(names(varinfo), c("longitude", "latitude"))]
 		}
 
-		i <- match(inf$plate.id, cnts$geno$genotype)
-		inf$TargetID <- cnts$geno$TargetID[i]
-		x$info <- inf
+		#i <- match(inf$sample, cnts$geno$genotype)
+		#inf$TargetID <- cnts$geno$TargetID[i]
+		x$info <- merge(inf, x$geno, by.x="sample", by.y="genotype", all.x=TRUE)
 
 #		ibs <- merge(x$marker[, 1:3], x$snp, all=TRUE)
 		dartnms <- gsub("_D.$", "", colnames(x$snp)[-1])
-		refnms <- as.character(inf[inf$crop == crop, "plate.id"])
+		refnms <- as.character(inf[inf$crop == crop, "sample"])
 		i <- match(dartnms, refnms)
 
 #		write.csv(ibs[, c(1:3, which(!is.na(i))+3)], file.path(outpath, paste0(oname, "_IBS.csv")), na="", row.names=FALSE)
@@ -204,7 +204,7 @@ prepare_dart <- function(path, outpath) {
 
 		bname <- file.path(outpath, x$order)
 
-		utils::write.csv(x$info, paste0(bname, "_genotype-info.csv"), row.names=FALSE)
+		utils::write.csv(x$info, paste0(bname, "_variety-info.csv"), row.names=FALSE)
 #		utils::write.csv(x$marker, paste0(bname, "_marker-info.csv"), row.names=FALSE)
 
 		cropff <- list.files(croppath, pattern=paste0("^Report_", x$order, ".*.csv$"), ignore.case=TRUE, full.names=TRUE)

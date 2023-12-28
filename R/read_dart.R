@@ -12,10 +12,11 @@ read_dart <- function(filename) {
 	colnames(marker) <- r[srow, 1:(scol-1)]
 
 	hdr <- data.frame(t(r[1:srow, scol:ncol(r)]))
+	cns <- c("order", "plate_barcode", "sample_reproducibility", "plate_row", "plate_col", "plate_id", "genotype")
 	if (ncol(hdr) == 7) {
-		colnames(hdr) <- c("order", "plate_barcode", "sample_reproducibility", "extract_row", "extract_col", "extract_plate", "genotype")
+		colnames(hdr) <- cns
 	} else 	if (ncol(hdr) == 8) {
-		colnames(hdr) <- c("order", "plate_barcode", "sample_reproducibility", "extract_row", "extract_col", "extract_plate", "genotype", "TargetID")
+		colnames(hdr) <- c(cns, "TargetID")
 	}
 	
 	d <- as.matrix(r[(srow+1):nrow(r), scol:ncol(r)])
