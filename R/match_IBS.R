@@ -204,7 +204,7 @@ match_IBS <- function(SNPs, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rat
 	output[["best_match"]] <- best
 
 	ib <- d[d$IBS > IBS_cutoff[1], ] 
-	ib$rank <- with(ib, ave(IBS, field_id, FUN=\(x) rev(rank(x))))
+	ib$rank <- with(ib, ave(IBS, field_id, FUN=\(x) rank(1-x)))
 	output[[paste0("IBS")]] <- ib
 		
 	nr <- as.data.frame(table(field_id=d$field_id))

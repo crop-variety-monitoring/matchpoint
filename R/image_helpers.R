@@ -32,8 +32,9 @@ assign_write_excel <- function(x, info, filename) {
 	info <- info[,c("TargetID", "Genotype")]
 	colnames(info)[2] <- "field_id"
 	full <- merge(resfull, info, by=1, all.x=TRUE)
-	full$rank <- with(full, ave(Probability, field_id, FUN=\(x) rev(rank(x))))
+	full$rank <- with(full, ave(Probability, field_id, FUN=\(x) rank(110 - x)))
 	x[[2]] <- full
+	colnames(x$res_summary)[1:4] <- c("field_Tid", "field_id", "ref_Tid", "ref_id variety")
 	writexl::write_xlsx(x[1:2], paste0(filename, ".xlsx"))
 }
 
