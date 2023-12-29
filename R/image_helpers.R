@@ -139,7 +139,14 @@ get_varinfo <- function(path) {
 	m <- matrix(byrow=TRUE, ncol=2, c(
 # TZA
 		"BORA", "Bora",
+		"PASI", "Pasi",
+		"PESA", "Pesa",
+		"ROJO", "Rojo",
+		"DK 90  89", "DK 9089",
+		"DK 80 -31", "DK 80-31",
 		"KALALU", "Kalalu",
+		"KIPAPI", "Kipapi",
+		"KIzimbani", "Kizimbani",
 		"Nerika 4", "NERICA 4",
 		'SUPA', 'Supa',  
 		'TAI', 'Tai',
@@ -156,7 +163,9 @@ get_varinfo <- function(path) {
 		"SITUKA M1", "Situka M1",
 		"Sy 514", "SY 514",
 		"T105", "T 105",
-		"TMV 2", "TMV 2(FUH 6105)",
+		"TMV1", "TMV 1",
+		"TMV2", "TMV 2",
+		# "TMV 2", "TMV 2(FUH 6105)", ??
 		"UYOLE 84", "Uyole 84",  		
 		"WE2109", "WE 2109",
 		"WE2113", "WE 2113",
@@ -175,17 +184,26 @@ get_varinfo <- function(path) {
 		"UL49(FUH5350)", "UL 49 (FUH5350)", 
 		"UL49/UL5095(FUH5350)", "UL 49/UL 5095 (FUH5350)",
 		"UL5095(F6303)", "UL 5095(F6303)",
-		"UL5218", "UL 5218"
+		"UL5218", "UL 5218",
+#NGA 
+		"SC 645", "SC645"
 	))
 
 	h <- cbind(1:nrow(ref), match(ref$variety, m[,1])) 
 	h <- h[!is.na(h[,2]), ]
 	if (nrow(h) > 0) {
+#TZA
 		ref$variety[h[,1]] <- m[h[,2], 2]
 		ref$variety <- gsub("Nerica", "NERICA", ref$variety)
+		ref$variety <- gsub("TARI CASS", "TARI CASS ", ref$variety)
 		ref$variety <- gsub("TARICASS", "TARI CASS ", ref$variety)
-	}
-	
+#NGA 
+		ref$variety <- gsub("SAMPEA-", "SAMPEA ", ref$variety)
+	}	
+	#s = sort(tolower(unique(ref$variety)))
+	#b = table(gsub("-", "", gsub(" ", "", s)))
+	#b[b>1]
+
 	fldref <- rbind(fld, ref)
 	fldref$crop <- tolower(fldref$crop)
 	unique(fldref)	
