@@ -17,7 +17,7 @@ make_unique_ids <- function(x) {
 assign_info <- function(filename) {
 	info <- read.csv(filename)
 	out <- info["TargetID"]
-	out$Genotype <- info$sample
+	out$Genotype <- make_unique_ids(info$sample)
 	out$RefType <- info$variety
 	out$SampleType <- ifelse(info$reference, NA, "field")
 	out
@@ -28,10 +28,12 @@ assign_write_excel <- function(x, info, filename) {
 	nms <- names(x$res_full)
 	resfull = do.call(rbind, lapply(1:length(x$res_full), 
 				\(i) data.frame(field_TID=nms[i], x$res_full[[i]])))
-	colnames(resfull)[1:3] <- c("field_Tid", "ref_Tid", "ref_sample")
+	colnames(resfull)[1:3] <- c("field_Tid", "ref_Tid", "ref_id")
 	info <- info[,c("TargetID", "Genotype")]
-	colnames(info)[2] <- "fld_sample"
-	x[[2]] <- merge(resfull, info, by=1)
+	colnames(info)[2] <- "field_id"
+	full <- merge(resfull, info, by=1, all.x=TRUE)
+	full$rank <- with(full, ave(Probability, field_id, FUN=\(x) rev(rank(x))))
+	x[[2]] <- full
 	writexl::write_xlsx(x[1:2], paste0(filename, ".xlsx"))
 }
 
@@ -133,9 +135,68 @@ get_varinfo <- function(path) {
 	}
 	ref$inventory <- ""
 	ref$reference <- TRUE
+	
+	m <- matrix(byrow=TRUE, ncol=2, c(
+# TZA
+		"BORA", "Bora",
+		"KALALU", "Kalalu",
+		"Nerika 4", "NERICA 4",
+		'SUPA', 'Supa',  
+		'TAI', 'Tai',
+		"Meru HB 623", "MERU HB 623",
+		"NATA -K 60 2023", "NATA K 60 2023",
+		"NATAH 104", "NATA H 104",
+		"PAN 4m 23", "PAN 4M-23",
+		"SC419", "SC 419",
+		"SC513", "SC 513",
+		"SC627", "SC 627",   
+		"SC719", "SC 719",
+		"Selian  97", "Selian 97",
+		"SITUKA", "Situka",  # M1?
+		"SITUKA M1", "Situka M1",
+		"Sy 514", "SY 514",
+		"T105", "T 105",
+		"TMV 2", "TMV 2(FUH 6105)",
+		"UYOLE 84", "Uyole 84",  		
+		"WE2109", "WE 2109",
+		"WE2113", "WE 2113",
+		"WE3102", "WE 3102",
+		"WE5135", "WE 5135",
+		"WE5141", "WE 5141",
+		"WE7118", "WE 7118",
+		"WE7133", "WE 7133",
+		"UH 5350", "UHS 5350", 
+		"UH 6303", "UHS 6303",
+		"UH5350", "UHS 5350",
+		"UH615",  "UHS 615",
+		"UH6303", "UHS 6303",
+		"UHS 5210", "UHS 5210 (F UH 6303)", 
+		"UHS5350", "UHS 5350",
+		"UL49(FUH5350)", "UL 49 (FUH5350)", 
+		"UL49/UL5095(FUH5350)", "UL 49/UL 5095 (FUH5350)",
+		"UL5095(F6303)", "UL 5095(F6303)",
+		"UL5218", "UL 5218"
+	))
+
+	h <- cbind(1:nrow(ref), match(ref$variety, m[,1])) 
+	h <- h[!is.na(h[,2]), ]
+	if (nrow(h) > 0) {
+		ref$variety[h[,1]] <- m[h[,2], 2]
+		ref$variety <- gsub("Nerica", "NERICA", ref$variety)
+		ref$variety <- gsub("TARICASS", "TARI CASS ", ref$variety)
+	}
+	
 	fldref <- rbind(fld, ref)
 	fldref$crop <- tolower(fldref$crop)
 	unique(fldref)	
+}
+
+
+copy_dart_files <- function(path, outpath, ordernr) {
+	ff <- list.files(path, pattern=paste0("^Report_", ordernr, ".*.csv$"), ignore.case=TRUE, full.names=TRUE)
+	outff <- gsub("Report_", "", basename(ff))
+	dir.create(outpath, FALSE, TRUE)
+	file.copy(ff, file.path(outpath, outff))
 }
 
 
@@ -165,7 +226,18 @@ prepare_dart <- function(path, outpath) {
 		stopifnot(length(countf) == 1)
 
 		x <- matchpoint::read_dart(cropf) 
-		cnts <- matchpoint::read_dart(countf) 
+		matchpoint:::copy_dart_files(croppath, outpath, x$order)
+
+		cnts0 <- matchpoint::read_dart(countf) 
+		cnts <- matchpoint:::dart_make_unique(cnts0)
+		if (!identical(cnts, cnts0)) {
+			fout <- gsub("Report_", "", basename(countf))
+			matchpoint:::write_dart(cnts, file.path(outpath, fout))
+			x <- matchpoint:::dart_make_unique(x)
+			fout <- gsub("Report_", "", basename(cropf))
+			matchpoint:::write_dart(x, file.path(outpath, fout))
+		}
+
 		if (is.null(cnts$geno$TargetID)) {  # ETH teff
 			x$geno$TargetID <- NA
 		} else {
@@ -174,7 +246,7 @@ prepare_dart <- function(path, outpath) {
 		}
 		colnames(x$marker)[colnames(x$marker) == "AlleleID"] <- "MarkerName"
 		colnames(x$snp)[colnames(x$snp) == "AlleleID"] <- "MarkerName"
-		colnames(x$snp) <- make_unique_ids(colnames(x$snp))
+		#colnames(x$snp) <- matchpoint:::make_unique_ids(colnames(x$snp))
 		
 		x$marker$MarkerName <- toupper(x$marker$MarkerName)
 		x$snp$MarkerName <- toupper(x$snp$MarkerName)
@@ -206,18 +278,23 @@ prepare_dart <- function(path, outpath) {
 			inf <- inf[, c(names(varinfo), c("longitude", "latitude"))]
 		}
 		
+		x$geno$geno_match <- gsub("_D.$", "", x$geno$genotype)
+		
 		if ("order" %in% names(inf)) {
-			x$info <- merge(inf, x$geno, by.x=c("order", "sample"), by.y=c("order", "genotype"))
+			x$info <- merge(inf, x$geno, by.x=c("order", "sample"), by.y=c("order", "geno_match"))
 			if (nrow(unique(x$info[, c("order", "sample")])) != nrow(x$info)) {
-				message("infofile order/sample numbers are not unique")
+				message("info-file order/sample numbers were not unique")
 			}
 		} else {
-			x$info <- merge(inf, x$geno, by.x="sample", by.y="genotype")
+			x$info <- merge(inf, x$geno, by.x="sample", by.y="geno_match")
 			if (length(unique(x$info$sample)) != nrow(x$info)) {
-				message("infofile sample numbers are not unique")
+				message("info-file sample numbers were not unique")
 			}		
 		}
-
+		x$info$sample <- x$info$genotype
+		x$info$genotype <- NULL
+		x$geno$geno_match <- NULL
+		
 #		ibs <- merge(x$marker[, 1:3], x$snp, all=TRUE)
 		dartnms <- gsub("_D.$", "", colnames(x$snp)[-1])
 		refnms <- as.character(inf[inf$crop == crop, "sample"])
@@ -255,10 +332,6 @@ prepare_dart <- function(path, outpath) {
 
 		utils::write.csv(x$info, paste0(bname, "_variety-info.csv"), row.names=FALSE)
 #		utils::write.csv(x$marker, paste0(bname, "_marker-info.csv"), row.names=FALSE)
-
-		cropff <- list.files(croppath, pattern=paste0("^Report_", x$order, ".*.csv$"), ignore.case=TRUE, full.names=TRUE)
-		outff <- gsub("Report_", "", basename(cropff))
-		ok <- file.copy(cropff, file.path(outpath, outff))
 		
 		x$order <- NULL
 		writexl::write_xlsx(x, paste0(bname, ".xlsx"), format_headers=FALSE)

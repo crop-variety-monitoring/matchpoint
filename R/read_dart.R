@@ -111,7 +111,7 @@ make_dart_2row <- function(x) {
 
 dart_make_unique <- function(x) {
 	n <- length(x$geno$genotype)
-	if (n == length(unique(x$geno$genotype))) {
+	if (n != length(unique(x$geno$genotype))) {
 		x$geno$genotype <- make_unique_ids(x$geno$genotype)
 		colnames(x$snp) <- make_unique_ids(colnames(x$snp))
 	}
@@ -125,11 +125,21 @@ dart_make_unique <- function(x) {
 
 
 write_dart <- function(x, filename) {
-	idcols <- 1:2
+	if (x$type == "1_row") {
+		idcols <- 1
+	} else {
+		idcols <- 1:2	
+	}
 	s <- cbind(x$marker, x$snp[, -idcols])
+	s <- rbind(colnames(s), s)
 	g <- t(x$geno)
 	d <- abs(dim(g) - c(0, ncol(s)))
-	g <- cbind(matrix("*", d[1], d[2]), g)
+	if (x$type == "counts") {
+		s[1, (d[2]+1):ncol(s)] <- g[nrow(g), ]
+		g <- cbind(matrix("*", d[1]-1, d[2]), g[-nrow(g), ])
+	} else {
+		g <- cbind(matrix("*", d[1], d[2]), g)
+	}
 	colnames(s) <- paste0("X", 1:ncol(s))
 	colnames(g) <- paste0("X", 1:ncol(g))
 	gs <- rbind(g, s)

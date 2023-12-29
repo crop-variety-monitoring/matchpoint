@@ -203,7 +203,9 @@ match_IBS <- function(SNPs, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rat
 	names(best)[5] <- "Sample_SNP_Missing_Rate"
 	output[["best_match"]] <- best
 
-	output[[paste0("IBS")]] <- d[d$IBS > IBS_cutoff[1], ]
+	ib <- d[d$IBS > IBS_cutoff[1], ] 
+	ib$rank <- with(ib, ave(IBS, field_id, FUN=\(x) rev(rank(x))))
+	output[[paste0("IBS")]] <- ib
 		
 	nr <- as.data.frame(table(field_id=d$field_id))
 	rept <- stats::aggregate(d[, "IBS", drop=FALSE], d[, "field_id", drop=FALSE], 
