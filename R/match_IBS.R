@@ -29,12 +29,14 @@ fix_duplicate_names <- function(x, verbose=FALSE) {
 }
 
 remove_unknown_samples <- function(x, sample.id, verbose=FALSE) {
-	cns <- colnames(x)[-1]
-	i <- match(cns, sample.id)
+	cns <- colnames(x)
+	i <- match(cns[-1], sample.id)
 	j <- is.na(i)
 	if (any(j)) {
 		if (verbose) message(paste(sum(j), "unmatched genotypes removed"))
-		x <- x[, -(which(j)+1)]
+		k <- which(j) + 1
+		x <- x[, -k]
+		colnames(x) <- cns[-k]
 	}
 	x
 }
