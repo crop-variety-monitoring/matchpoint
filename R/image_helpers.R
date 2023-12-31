@@ -1,4 +1,18 @@
 
+order_names <- function() {
+
+	d <- data.frame(
+		name = c('DCob22-7521_moreOrders', 'DEra22-7523_1_moreOrders', 'DCas23-7954', 'DCpea23-7956_moreOrders', 'DMz23-7957_7228', 'DRi23-7955_moreOrders', 'DCas23-7816', 'DCob23-7823', 'DMz23-7824', 'DRi23-7825'),
+		crop = c("bean", "teff", "cassava", "cowpea", "maize", "rice", "cassava", "bean", "maize", "rice"),
+		iso3 = c("ETH", "ETH", "NGA", "NGA", "NGA", "NGA", "TZA", "TZA", "TZA", "TZA"),
+		country = c("Ethiopia", "Ethiopia", "Nigeria", "Nigeria", "Nigeria", "Nigeria", "Tanzania", "Tanzania", "Tanzania", "Tanzania")
+	)
+	d$cc <- paste(d$country, d$crop, sep="/")
+	d
+}
+	
+
+
 make_unique_ids <- function(x) {
 	tab <- table(x)
 	dups <- tab[tab > 1]
@@ -28,13 +42,13 @@ assign_write_excel <- function(x, info, filename) {
 	nms <- names(x$res_full)
 	resfull = do.call(rbind, lapply(1:length(x$res_full), 
 				\(i) data.frame(field_TID=nms[i], x$res_full[[i]])))
-	colnames(resfull)[1:3] <- c("field_Tid", "ref_Tid", "ref_id")
+	colnames(resfull)[1:4] <- c("field_Tid", "ref_Tid", "ref_id", "variety")
 	info <- info[,c("TargetID", "Genotype")]
 	colnames(info)[2] <- "field_id"
 	full <- merge(resfull, info, by=1, all.x=TRUE)
-	full$rank <- with(full, ave(Probability, field_id, FUN=\(x) rank(110 - x)))
+	full$var_rank <- with(full, ave(Probability, field_id, FUN=\(x) rank(1000 - x, ties.method="min")))
 	x[[2]] <- full
-	colnames(x$res_summary)[1:4] <- c("field_Tid", "field_id", "ref_Tid", "ref_id variety")
+	colnames(x$res_summary)[1:7] <- c("field_Tid", "field_id", "ref_Tid", "ref_id", "variety", "NA.perc", "Probability")
 	writexl::write_xlsx(x[1:2], paste0(filename, ".xlsx"))
 }
 
@@ -148,6 +162,7 @@ get_varinfo <- function(path) {
 		"KALALU", "Kalalu",
 		"KIPAPI", "Kipapi",
 		"KIzimbani", "Kizimbani",
+		"Kibanda Memo", "Kibanda meno",
 		"Nerika 4", "NERICA 4",
 		'SUPA', 'Supa',  
 		'TAI', 'Tai',
@@ -187,7 +202,17 @@ get_varinfo <- function(path) {
 		"UL5095(F6303)", "UL 5095(F6303)",
 		"UL5218", "UL 5218",
 #NGA 
-		"SC 645", "SC645"
+		"SC 645", "SC645",
+		"SC 419", "SC419",
+		"SAMMAZ-11", "SAMMAZ 11",
+		"WAC 42PVEE", "WAC42PVEE",
+		"OBASUPER 1", "OBA SUPER 1",
+		"OBASUPER 2", "OBA SUPER 2",
+		"ART- 98-SW-1", "ART-98-SW-1",
+		"ARICA 14", "ARICA-14",
+		"ARICA 4", "ARICA-4",
+		"IITA-TMS-IBA00070", "IITA TMS IBA00070",
+		"NR-8083", "NR 8083"
 	))
 
 	h <- cbind(1:nrow(ref), match(ref$variety, m[,1])) 
@@ -200,6 +225,8 @@ get_varinfo <- function(path) {
 		ref$variety <- gsub("TARICASS", "TARI CASS ", ref$variety)
 #NGA 
 		ref$variety <- gsub("SAMPEA-", "SAMPEA ", ref$variety)
+		"SAMMAZ-11"
+		ref$variety <- gsub("ARICA-", "SAMPEA ", ref$variety)
 	}	
 	#s = sort(tolower(unique(ref$variety)))
 	#b = table(gsub("-", "", gsub(" ", "", s)))
@@ -260,7 +287,7 @@ prepare_dart <- function(path, outpath) {
 		if (is.null(cnts$geno$TargetID)) {  # ETH teff
 			x$geno$TargetID <- NA
 		} else {
-			i <- match(cnts$geno$genotype, x$geno$genotype)
+			i <- match(x$geno$genotype, cnts$geno$genotype)
 			x$geno$TargetID <- cnts$geno$TargetID[i]
 		}
 		colnames(x$marker)[colnames(x$marker) == "AlleleID"] <- "MarkerName"

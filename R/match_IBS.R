@@ -73,7 +73,6 @@ match_IBS <- function(SNPs, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rat
 				IBS_cutoff=0.5, Inb_method="mom.visscher", 
 				threads=1, verbose=FALSE, filename="") {
 
-
 	input <- matchpoint:::get_clean_data(SNPs, genotypes, markers, filename=filename, verbose=verbose)
 	
 	meta1 <- data.frame(metric=c("n references", "n samples", "n markers"), 
@@ -181,7 +180,7 @@ match_IBS <- function(SNPs, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rat
 
 	SNPRelate::snpgdsClose(genofile)
 
-	out_all <- round(ibs[[3]], 4)
+	out_all <- ibs[[3]]
 	colnames(out_all) <- rownames(out_all) <- ibs[[1]]
 	i <- which(colnames(out_all) %in% input$ref.id)
 	out_match <- out_all[-i, i]
@@ -194,19 +193,39 @@ match_IBS <- function(SNPs, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rat
 	rownames(out_match) <- NULL
 
 	mref_id <- gsub("_D.$", "", d$ref_id)
-	d$variety <- genotypes$variety[match(mref_id, genotypes$sample)]
+	i <- match(mref_id, genotypes$sample)
+	d$variety <- genotypes$variety[i]
+	d$ref_Tid <- genotypes$TargetID[i]
+	mfld_id <- gsub("_D.$", "", d$field_id)
+	i <- match(mfld_id, genotypes$sample)
+	d$field_Tid <- genotypes$TargetID[i]
+	
 	d <- d[with(d, order(field_id, -IBS)),]
 
 # matches
 	best <- d[!duplicated(d$field_id),]
 	best <- merge(best, smp_mr, by.x="field_id", by.y="row.names", all.y=TRUE)
-	names(best)[5] <- "Sample_SNP_Missing_Rate"
+	names(best)[7] <- "Sample_SNP_Missing_Rate"
+	best$IBS <- round(best$IBS, 6)
 	output[["best_match"]] <- best
 
 	ib <- d[d$IBS > IBS_cutoff[1], ] 
-	ib$rank <- with(ib, ave(IBS, field_id, FUN=\(x) rank(1-x)))
-	output[[paste0("IBS")]] <- ib
-		
+	ib$id_rank <- with(ib, ave(IBS, field_id, FUN=\(x) rank(1-x, ties.method="min")))
+	
+	a <- aggregate(ib[, "IBS", drop=FALSE], ib[, c("field_id", "variety")], max, na.rm=TRUE)
+	a$var_rank <- with(a, ave(IBS, field_id, FUN=\(x) rank(1-x, ties.method="min")))
+	a$IBS <- NULL
+	ib <- merge(ib, a, by=c("field_id",  "variety"))
+	ib <- ib[order(ib$field_id, ib$id_rank), ]
+	ib$IBS <- round(ib$IBS, 6)
+	
+	output[[paste0("IBS_id")]] <- ib
+	
+	dups <- duplicated(ib[, c("field_id", "var_rank")])
+	output[[paste0("IBS_variety")]] <- ib[!dups, ]
+
+
+	
 	nr <- as.data.frame(table(field_id=d$field_id))
 	rept <- stats::aggregate(d[, "IBS", drop=FALSE], d[, "field_id", drop=FALSE], 
 			\(i) c(mean(i, na.rm=TRUE), stats::sd(i, na.rm=TRUE), length(stats::na.omit(i))))
