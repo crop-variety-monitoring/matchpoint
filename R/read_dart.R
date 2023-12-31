@@ -24,6 +24,7 @@ read_dart <- function(filename) {
 	v[v == "-"] <- NA
 	d <- matrix(as.integer(v), nrow=nrow(d), ncol=ncol(d))	
 	d <- data.frame(r[(srow+1):nrow(r), 1:2], d, check.names=FALSE)
+
 	if (grepl("_Counts", filename) || isTRUE(any(d[,-c(1:2)] > 2))) { 
 		ids <- trimws(hdr[, ncol(hdr)-1])
 		colnames(d) <- c(colnames(marker)[1:2], ids)
@@ -31,7 +32,11 @@ read_dart <- function(filename) {
 	} 
 	i <- seq(1, nrow(d), 2)
 	if (grepl("_2row", filename) || (all(d[i,1] == d[i+1,1]))) {
-		ids <- trimws(hdr[,ncol(hdr)])
+		if (ncol(hdr) == 8) {
+			ids <- trimws(hdr[,ncol(hdr)-1])		
+		} else {
+			ids <- trimws(hdr[,ncol(hdr)])
+		}
 		colnames(d) <- c(colnames(marker)[1:2], ids)
 		list(snp=d, marker=marker, geno=hdr, type="2_row", order=ordname)
 	} else if (nrow(d) == length(unique(d[, 1]))) {
