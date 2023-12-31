@@ -47,8 +47,10 @@ assign_write_excel <- function(x, info, filename) {
 	colnames(info)[2] <- "field_id"
 	full <- merge(resfull, info, by=1, all.x=TRUE)
 	full$var_rank <- with(full, ave(Probability, field_id, FUN=\(x) rank(1000 - x, ties.method="min")))
+	full$Probability <- full$Probability/100
 	x[[2]] <- full
 	colnames(x$res_summary)[1:7] <- c("field_Tid", "field_id", "ref_Tid", "ref_id", "variety", "NA.perc", "Probability")
+	x$res_summary$Probability <- x$res_summary$Probability/100
 	writexl::write_xlsx(x[1:2], paste0(filename, ".xlsx"))
 }
 
