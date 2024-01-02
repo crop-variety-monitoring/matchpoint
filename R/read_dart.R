@@ -28,26 +28,29 @@ read_dart <- function(filename) {
 	if (grepl("_Counts", filename) || isTRUE(any(d[,-c(1:2)] > 2))) { 
 		ids <- trimws(hdr[, ncol(hdr)-1])
 		colnames(d) <- c(colnames(marker)[1:2], ids)
-		return(list(snp=d, marker=marker, geno=hdr, type="counts"))
-	} 
-	i <- seq(1, nrow(d), 2)
-	if (grepl("_2row", filename) || (all(d[i,1] == d[i+1,1]))) {
-		if (ncol(hdr) == 8) {
-			ids <- trimws(hdr[,ncol(hdr)-1])		
-		} else {
-			ids <- trimws(hdr[,ncol(hdr)])
-		}
-		colnames(d) <- c(colnames(marker)[1:2], ids)
-		list(snp=d, marker=marker, geno=hdr, type="2_row", order=ordname)
-	} else if (nrow(d) == length(unique(d[, 1]))) {
-		d <- d[,-2]
-		ids <- trimws(hdr[,ncol(hdr)])
-		colnames(d) <- c(colnames(marker)[1], ids)
-		list(snp=d, marker=marker, geno=hdr, type="1_row", order=ordname)	
+		out <- list(snp=d, marker=marker, geno=hdr, type="counts")
 	} else {
-		warning("don't know if this is a Count, 1_row or a 2_row file")
-		list(snp=d, marker=marker, geno=hdr, type="???", order=ordname)		
+		i <- seq(1, nrow(d), 2)
+		if (grepl("_2row", filename) || (all(d[i,1] == d[i+1,1]))) {
+			if (ncol(hdr) == 8) {
+				ids <- trimws(hdr[,ncol(hdr)-1])		
+			} else {
+				ids <- trimws(hdr[,ncol(hdr)])
+			}
+			colnames(d) <- c(colnames(marker)[1:2], ids)
+			out <- list(snp=d, marker=marker, geno=hdr, type="2_row", order=ordname)
+		} else if (nrow(d) == length(unique(d[, 1]))) {
+			d <- d[,-2]
+			ids <- trimws(hdr[,ncol(hdr)])
+			colnames(d) <- c(colnames(marker)[1], ids)
+			out <- list(snp=d, marker=marker, geno=hdr, type="1_row", order=ordname)	
+		} else {
+			warning("don't know if this is a Count, 1_row or a 2_row file")
+			out <- list(snp=d, marker=marker, geno=hdr, type="???", order=ordname)		
+		}
 	}
+	class(out) <- "darter"
+	out
 }
 
 
@@ -101,7 +104,7 @@ make_dart_2row <- function(x) {
 	first  <- c(0,1,0,1)
 	second <- c(0,0,1,1)
 	dd <- as.matrix(d[,-1])
-	a = lapply(1:nrow(d), \(i) {
+	a <- lapply(1:nrow(d), \(i) {
 			v <- dd[i, ] + 2
 			v[is.na(v)] <- 1
 			rbind(first[v], second[v])
@@ -109,6 +112,9 @@ make_dart_2row <- function(x) {
 	a <- do.call(rbind, a)
 	a <- data.frame(rep(d[,1], each=2), as.vector(t(e[,2:3])), a)
 	names(a) <- c("MarkerName", "AlleleSequence", names(d)[-1])
+	x$snp <- a
+	x$type=="2_row"
+	x
 }
 
 
@@ -148,5 +154,5 @@ write_dart <- function(x, filename) {
 	colnames(s) <- paste0("X", 1:ncol(s))
 	colnames(g) <- paste0("X", 1:ncol(g))
 	gs <- rbind(g, s)
-	write.table(gs, filename, na="-", col.names=FALSE, row.names=FALSE, sep=",")
+	utils::write.table(gs, filename, na="-", col.names=FALSE, row.names=FALSE, sep=",")
 }

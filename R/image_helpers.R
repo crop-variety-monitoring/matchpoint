@@ -29,7 +29,7 @@ make_unique_ids <- function(x) {
 
 
 assign_info <- function(filename) {
-	info <- read.csv(filename)
+	info <- utils::read.csv(filename)
 	out <- info["TargetID"]
 	out$Genotype <- make_unique_ids(info$sample)
 	out$RefType <- info$variety
@@ -190,7 +190,7 @@ prepare_dart <- function(path, outpath) {
 	intpath <- gsub("raw/dart", "intermediate", path)
 	dir.create(outpath, FALSE, TRUE)
 	
-	varinfo <- matchpoint:::get_varinfo(path)
+	varinfo <- get_varinfo(path)
 
 	crops <- list.dirs(path, full.names=FALSE)
 	crops <- crops[crops != ""]
@@ -211,16 +211,16 @@ prepare_dart <- function(path, outpath) {
 		stopifnot(length(countf) == 1)
 
 		x <- matchpoint::read_dart(cropf) 
-		matchpoint:::copy_dart_files(croppath, outpath, x$order)
+		copy_dart_files(croppath, outpath, x$order)
 
 		cnts0 <- matchpoint::read_dart(countf) 
-		cnts <- matchpoint:::dart_make_unique(cnts0)
+		cnts <- dart_make_unique(cnts0)
 		if (!identical(cnts, cnts0)) {
 			fout <- gsub("Report_", "", basename(countf))
-			matchpoint:::write_dart(cnts, file.path(outpath, fout))
-			x <- matchpoint:::dart_make_unique(x)
+			write_dart(cnts, file.path(outpath, fout))
+			x <- dart_make_unique(x)
 			fout <- gsub("Report_", "", basename(cropf))
-			matchpoint:::write_dart(x, file.path(outpath, fout))
+			write_dart(x, file.path(outpath, fout))
 		}
 
 		if (is.null(cnts$geno$TargetID)) {  # ETH teff
@@ -231,7 +231,7 @@ prepare_dart <- function(path, outpath) {
 		}
 		colnames(x$marker)[colnames(x$marker) == "AlleleID"] <- "MarkerName"
 		colnames(x$snp)[colnames(x$snp) == "AlleleID"] <- "MarkerName"
-		#colnames(x$snp) <- matchpoint:::make_unique_ids(colnames(x$snp))
+		#colnames(x$snp) <- make_unique_ids(colnames(x$snp))
 		
 		x$marker$MarkerName <- toupper(x$marker$MarkerName)
 		x$snp$MarkerName <- toupper(x$snp$MarkerName)

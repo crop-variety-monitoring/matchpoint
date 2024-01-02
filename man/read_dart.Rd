@@ -20,7 +20,7 @@ read_dart(filename)
 }
 
 \value{
-list
+darter object
 }
 
 

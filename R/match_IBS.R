@@ -1,81 +1,12 @@
 
 
-fix_filename <- function(filename) {
-	filename <- trimws(filename)
-	if (filename != "") {
-		filename <- tools::file_path_sans_ext(filename)
-		outdir <- dirname(filename)
-		dir.create(outdir, FALSE, TRUE)
-	}
-	filename
-}
-
-
-fix_duplicate_names <- function(x, verbose=FALSE) {
-	cn <- colnames(x)
-	tab <- table(cn)
-	dups <- tab[tab > 1]
-	if (length(dups) > 0) {
-		if (verbose) message("adding _D1 _D2 to duplicates")
-		for (i in 1:length(dups)) {
-			n <- dups[i]
-			sfx <- paste0("_D", 1:n)
-			nm <- names(n)
-			cn[cn == nm] <- paste0(nm, sfx)
-		}
-		colnames(x) <- cn
-	}
-	x
-}
-
-remove_unknown_samples <- function(x, sample.id, verbose=FALSE) {
-	cns <- colnames(x)
-	i <- match(cns[-1], sample.id)
-	j <- is.na(i)
-	if (any(j)) {
-		if (verbose) message(paste(sum(j), "unmatched genotypes removed"))
-		k <- which(j) + 1
-		x <- x[, -k]
-		colnames(x) <- cns[-k]
-	}
-	x
-}
-
-
-get_clean_data <- function(snp, genotypes, markers, filename, verbose=FALSE) {
-	snp <- remove_unknown_samples(snp, genotypes$sample, verbose=verbose)
-	i <- match(colnames(snp)[-1], genotypes$sample)
-	snp <- fix_duplicate_names(snp, verbose=verbose)
-	cns <- colnames(snp)[-1]
-	ref.id <- cns[genotypes$reference[i]]
-	field.id <- cns[!genotypes$reference[i]]
-	markers <- markers[, c("MarkerName", "Chr", "Pos")]
-	imark <- match(toupper(snp[,1]), toupper(markers$MarkerName))
-	if (any(is.na(imark))) {
-		unk <- snp[is.na(imark), 1]
-		message("unknown markers in snp file:\n", paste(unk, collapse=", "))
-	}
-	markers <- markers[imark, ]
-	markers$Chr[is.na(markers$Chr)] <- ""
-	markers$Pos[is.na(markers$Pos)] <- ""
-	filename <- fix_filename(filename)
-	if (filename == "") {
-		gds <- paste0(tempfile(), "_geno.gds")	
-	} else {
-		gds <- paste0(filename, "_geno.gds")
-	}
-	list(snp=snp, markers=markers, ref.id=ref.id, field.id=field.id, filename=filename, gds=gds)
-}
-
-
-
-match_IBS <- function(SNPs, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0.2, 
+match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0.2, 
 				Ref_Missing_Rate=0.2, Sample_Missing_Rate=0.2, 
 				Ref_Heterozygosity_Rate=1, Sample_Heterozygosity_Rate=1,
 				IBS_cutoff=0.5, Inb_method="mom.visscher", 
-				threads=1, verbose=FALSE, filename="") {
+				threads=4, verbose=FALSE, filename="") {
 
-	input <- matchpoint:::get_clean_data(SNPs, genotypes, markers, filename=filename, verbose=verbose)
+	input <- prepare_data(x, genotypes, markers, filename=filename, verbose=verbose)
 	
 	meta1 <- data.frame(metric=c("n references", "n samples", "n markers"), 
 						value=c(length(input$ref.id), length(input$field.id), nrow(input$snp)))
@@ -214,7 +145,7 @@ match_IBS <- function(SNPs, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rat
 	ib <- d[d$IBS > IBS_cutoff[1], ] 
 	ib$id_rank <- with(ib, ave(IBS, field_id, FUN=\(x) rank(1-x, ties.method="min")))
 	
-	a <- aggregate(ib[, "IBS", drop=FALSE], ib[, c("field_id", "variety")], max, na.rm=TRUE)
+	a <- stats::aggregate(ib[, "IBS", drop=FALSE], ib[, c("field_id", "variety")], max, na.rm=TRUE)
 	a$var_rank <- with(a, ave(IBS, field_id, FUN=\(x) rank(1-x, ties.method="min")))
 	a$IBS <- NULL
 	ib <- merge(ib, a, by=c("field_id",  "variety"))

@@ -1,6 +1,6 @@
 
 get_clean_data_NULL <- function(snp, genotypes, filename) {
-	snp <- matchpoint:::remove_unknown_samples(snp, genotypes$sample, verbose=FALSE)
+	snp <- remove_unknown_samples(snp, genotypes$sample, verbose=FALSE)
 	i <- match(colnames(snp)[-1], genotypes$sample)
 #	snp <- fix_duplicate_names(snp, verbose=verbose)
 	cns <- colnames(snp)[-1]
@@ -16,15 +16,15 @@ get_clean_data_NULL <- function(snp, genotypes, filename) {
 	train$ID <- as.factor(train$ID)
 	pred  <- snp2[!i, ]
 
-	filename <- matchpoint:::fix_filename(filename)
+	filename <- fix_filename(filename)
 	list(train=train, pred=pred, ref.id=ref.id, field.id=field.id, filename=filename)
 }
 
 
 
-match_NULL <- function(SNPs, genotypes, filename="") {
+match_NULL <- function(x, genotypes, filename="") {
 
-	input <- get_clean_data_RF(SNPs, genotypes, filename=filename)
+	input <- get_clean_data_NULL(x, genotypes, filename=filename)
 
 	train = t(input$train[, -1]) |> as.matrix()
 	i <- seq(1, nrow(train), 2)
@@ -35,14 +35,6 @@ match_NULL <- function(SNPs, genotypes, filename="") {
 	i <- apply(pred, 1, \(x) which.min(colMeans(abs(train - x))))
 	r <- colnames(train)[i]
 
-	if (input$filename != "") {
-		xlsx <- paste0(input$filename, "_RF.xlsx")
-		writexl::write_xlsx(output, xlsx, format_headers=FALSE)
-		saveRDS(ibs, paste0(input$filename, "_RF.rds"))
-		invisible(output)
-	} else {
-		output
-	}
 }
 
 
