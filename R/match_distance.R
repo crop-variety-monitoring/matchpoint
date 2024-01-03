@@ -18,10 +18,15 @@
 
 hamming_distance <- function(ref, fld=NULL) {
 	if (is.null(fld)) {
-		out <- sapply(1:ncol(ref), \(i) colSums((ref - ref[,i]) != 0, na.rm=TRUE)) / nrow(ref)
-		colnames(out) <- rownames(out)
+		out <- matrix(NA, ncol=ncol(ref), nrow=ncol(ref))
+		colnames(out) <- rownames(out) <- colnames(ref)
+		nc <- ncol(ref)
+		for (i in 1:nc) {
+			j <- i:nc
+			out[i, j] <- out[j, i] <- colSums(ref[,j,drop=FALSE] != ref[,i], na.rm=TRUE)
+		}
 	} else {
-		out <- t(sapply(1:ncol(fld), \(i) colSums((ref - fld[,i]) != 0, na.rm=TRUE)) / nrow(ref))
+		out <- t(sapply(1:ncol(fld), \(i) colSums(ref != fld[,i], na.rm=TRUE)) / nrow(ref))
 		rownames(out) <- colnames(fld)
 	}
 	out
@@ -29,7 +34,7 @@ hamming_distance <- function(ref, fld=NULL) {
 
 
 counts_distance <- function(ref, fld=NULL) {
-	if (ref) {
+	if (is.null(fld)) {
 		out <- sapply(1:ncol(ref), \(i) colSums(abs(ref - ref[,i]), na.rm=TRUE))
 		colnames(out) <- rownames(out)
 	} else {
@@ -41,51 +46,84 @@ counts_distance <- function(ref, fld=NULL) {
 
 
 
-match_distance <- function(x, genotypes, compare="ref2fld", missing_rate=0.25, filename="", verbose=TRUE) {
+get_output <- function(x, genotypes, input, name, meta=NULL, comp_all=TRUE) {
 
-	compare <- match.arg(tolower(compare), c("ref2fld", "ref2ref", "fld2fld", "all"))
-	
-	input <- prepare_data(x, genotypes, missing_rate=missing_rate, filename=filename, verbose=verbose)
-
-	if (compare == "fld2fld") {
-		ref <- input$snp[, colnames(input$snp) %in% input$field.id]	
-	} else if (compare == "all") {
-		ref <- input$snp
+	if (comp_all) {
+		m <- x[rownames(x) %in% input$field.id, colnames(x) %in% input$ref.id]
 	} else {
-		ref <- input$snp[, colnames(input$snp) %in% input$ref.id]
+		m <- x
 	}
 	
-	if (compare == "ref2fld") {
-		fld <- input$snp[, colnames(input$snp) %in% input$field.id]
+	d <- data.frame(field_id=rownames(m), 
+			ref_id=rep(colnames(m), each=nrow(m)),
+			variety="", dist=as.vector(m))
+	i <- match(d$ref_id, genotypes$sample)
+	d$variety <- genotypes$variety[i]
+	d$ref_Tid <- genotypes$TargetID[i]
+	i <- match(d$field_id, genotypes$sample)
+	d$field_Tid <- genotypes$TargetID[i]
+	d[with(d, order(field_id, -dist)),]
+	best <- d[!duplicated(d$field_id),]
+	best$dist <- round(best$dist, 6)
+
+
+	d$id_rank <- ave(d[[name]], d$field_id, FUN=\(x) rank(1-x, ties.method="min"))
+	a <- stats::aggregate(d[, "dist", drop=FALSE], d[, c("field_id", "variety")], max, na.rm=TRUE)
+	a$var_rank <- ave(a[[name]], a$field_id, FUN=\(x) rank(1-x, ties.method="min"))
+	a[[name]] <- NULL
+	d <- merge(d, a, by=c("field_id",  "variety"))
+	d <- d[order(d$field_id, d$id_rank), ]
+	d[[name]] <- round(d[[name]], 6)
+	dups <- duplicated(d[, c("field_id", "var_rank")])
+
+	if (comp_all) {
+		out <- list(meta=meta, best_match=best, d, d[!dups, ], distance=x, similarity=1-m)
 	} else {
-		fld <- NULL
+		out <- list(meta=meta, best_match=best, d, d[!dups, ], similarity=1-m)	
 	}
+	names(out)[3:4] <- paste0(name, c("_id", "_variety"))
+	out
+}
+
+
+
+
+match_distance <- function(x, genotypes, missing_rate=0.25, comp_all=FALSE, filename="", verbose=TRUE) {
+
+	input <- matchpoint:::prepare_data(x, genotypes, missing_rate=missing_rate, filename=filename, verbose=verbose)
+
+
 	if (x$type == "counts") {
-		d <- counts_distance(ref, fld)
+		if (comp_all) {
+			dst <- counts_distance(input$snp[, -1])
+		} else {
+			fld <- input$snp[, colnames(input$snp) %in% input$field.id]
+			ref <- input$snp[, colnames(input$snp) %in% input$ref.id]
+			dst <- counts_distance(ref, fld)
+		}
 	} else if (x$type == "2_row") {
-		d <- hamming_distance(ref, fld)
+		if (comp_all) {
+			dst <- matchpoint:::hamming_distance(input$snp[, -1])
+		} else {
+			fld <- input$snp[, colnames(input$snp) %in% input$field.id]
+			ref <- input$snp[, colnames(input$snp) %in% input$ref.id]
+			dst <- matchpoint:::hamming_distance(ref, fld)
+		}
 	} else { # make 2_row?
 		stop("need a counts or 2_row object")
 	}
-	out = list(dist=d)
-	if (is.null(fld)) {
-		diag(d) <- NA
-	}
-	i <- apply(d, 1, which.min)
 
-	if (substr(compare, 1, 3) == "ref") {
-		v <- genotypes$variety[match(colnames(d), genotypes$sample)]
-		out$best_match <- data.frame(sample=rownames(d), ref=colnames(d)[i], variety=v[i])
-	} else {
-		out$best_match <- data.frame(sample=rownames(d), ref=colnames(d)[i])	
-	}
-	out$meta <- data.frame(metric="distance", value=ifelse(x$type == "counts", "euclidean", "hamming"))
+	meta <- data.frame(metric="distance", 
+				value=ifelse(x$type == "counts", "euclidean", "hamming"))
+	output <- get_output(dst, genotypes, input, "dist", meta, comp_all)
 
 	if (filename != "") {
-		writexl::write_xlsx(out, paste0(filename, "xlsx"), format_headers=FALSE)
-		invisible(out)
+		output$distance <- as.data.frame(output$distance, check.names=FALSE)
+		output$similarity <- as.data.frame(output$similarity, check.names=FALSE)
+		writexl::write_xlsx(output, paste0(filename, "_HAM.xlsx"), format_headers=FALSE)
+		invisible(output)
 	} else {
-		out
+		output
 	}
 }
 

@@ -3,7 +3,7 @@ read_dart <- function(filename) {
 
 	r <- data.frame(data.table::fread(filename, header=FALSE), check.names=FALSE)
 	ordname <- gsub("^Report_", "", basename(filename))
-	ordname <- gsub("\\_SNP.csv$", "", ordname)
+	ordname <- gsub("\\_SNP_2row.csv$|\\_SNP.csv$|\\_Counts.csv$", "", ordname)
 
 	srow <- sum(r[1:30, 1] == "*") + 1
 	scol <- sum(r[1, 1:50] == "*") + 1
@@ -28,7 +28,7 @@ read_dart <- function(filename) {
 	if (grepl("_Counts", filename) || isTRUE(any(d[,-c(1:2)] > 2))) { 
 		ids <- trimws(hdr[, ncol(hdr)-1])
 		colnames(d) <- c(colnames(marker)[1:2], ids)
-		out <- list(snp=d, marker=marker, geno=hdr, type="counts")
+		out <- list(snp=d, marker=marker, geno=hdr, type="counts", order=ordname)
 	} else {
 		i <- seq(1, nrow(d), 2)
 		if (grepl("_2row", filename) || (all(d[i,1] == d[i+1,1]))) {

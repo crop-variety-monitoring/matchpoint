@@ -138,7 +138,7 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 # matches
 	best <- d[!duplicated(d$field_id),]
 	best <- merge(best, smp_mr, by.x="field_id", by.y="row.names", all.y=TRUE)
-	names(best)[7] <- "Sample_SNP_Missing_Rate"
+	names(best)[7] <- "sample_SNP_missing_rate"
 	best$IBS <- round(best$IBS, 6)
 	output[["best_match"]] <- best
 

@@ -43,16 +43,43 @@ remove_unknown_samples <- function(x, sample.id, verbose=FALSE) {
 
 
 prepare_data <- function(x, genotypes, markers=NULL, filename, missing_rate=NULL, verbose=FALSE) {
-	filename <- fix_filename(filename)
-	snp <- remove_unknown_samples(x$snp, genotypes$sample, verbose=verbose)
-	snp <- fix_duplicate_names(snp, verbose=verbose)
+
+	filename <- matchpoint:::fix_filename(filename)
+	if (x$type != "1_row") {
+		x$snp <- x$snp[,-2]
+	}
+	
+	snp <- matchpoint:::remove_unknown_samples(x$snp, genotypes$sample, verbose=verbose)
+	snp <- matchpoint:::fix_duplicate_names(snp, verbose=verbose)
+
+	i <- apply(snp[,-1], 1, \(i) length(na.omit(unique(i))))
+	i <- which(i < 2) # could be 0 or 1
+	if (length(i) > 0) {
+		snp <- snp[-i, ]
+		if (verbose) {
+			message(paste("   removed", length(i)/2, "markers with no variation"))
+		}
+	}
 
 	if (!(is.null(missing_rate) || is.na(missing_rate))) {
 		# keep these 
-		i <- round(colSums(is.na(x$snp[,-1])) / nrow(x$snp), 2) <= missing_rate
-		x$snp <- x$snp[, c(TRUE, i)]
-		if (verbose && any(!i)) {
-			message(paste("   removed", sum(!i), "sample(s) that had too many missing values"))
+		i <- (rowSums(is.na(snp[,-1])) / ncol(snp)) <= missing_rate
+		if (any(!i)) {
+		# check if these are pairs?
+			snp <- snp[i, ]
+			if (verbose) {
+				message(paste("   removed", sum(!i), "marker(s) with too many missing values"))
+			}
+		}
+
+		# keep these 
+
+		i <- (colSums(is.na(snp[,-1])) / nrow(snp)) <= missing_rate
+		if (any(!i)) {
+			snp <- snp[, c(TRUE, i)]
+			if (verbose && any(!i)) {
+				message(paste("   removed", sum(!i), "sample(s) with too many missing values"))
+			}
 		}
 	}
 	

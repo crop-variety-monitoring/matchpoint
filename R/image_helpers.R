@@ -207,8 +207,7 @@ prepare_dart <- function(path, outpath) {
 		croppath <- file.path(path, crop)
 		cropf <- list.files(croppath, pattern="SNP.csv$", full.names=TRUE, ignore.case=TRUE)
 		stopifnot(length(cropf) == 1)
-		countf <- list.files(croppath, pattern="Counts.csv$", full.names=TRUE, ignore.case=TRUE)
-		stopifnot(length(countf) == 1)
+		countf <- gsub("SNP.csv$", "Counts.csv", cropf)
 
 		x <- matchpoint::read_dart(cropf) 
 		copy_dart_files(croppath, outpath, x$order)
@@ -221,6 +220,11 @@ prepare_dart <- function(path, outpath) {
 			x <- dart_make_unique(x)
 			fout <- gsub("Report_", "", basename(cropf))
 			write_dart(x, file.path(outpath, fout))
+			cropf2 <- gsub("SNP.csv$", "SNP_2row.csv", cropf)
+			fout2 <- gsub("Report_", "", basename(cropf2))
+			x2 <- matchpoint::read_dart(cropf2) 
+			x2 <- dart_make_unique(x2)
+			write_dart(x2, file.path(outpath, fout2))
 		}
 
 		if (is.null(cnts$geno$TargetID)) {  # ETH teff
