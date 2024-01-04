@@ -55,6 +55,13 @@ assign_write_excel <- function(x, info, filename) {
 }
 
 
+bindr <- function( ...) {
+	x <- list(...)
+	nms <- unique(unlist(lapply(x, names)))
+	x <- lapply(x, function(x) data.frame(c(x, sapply(setdiff(nms, names(x)), function(y) NA))))
+	x$make.row.names <- FALSE
+	do.call(rbind, x)
+}
 
 
 
@@ -67,27 +74,20 @@ get_varinfo <- function(path) {
 	}
 	fld <- as.data.frame(readxl::read_excel(ffld, 2))
 	fld$planting.barcode <- gsub(".jpg", "", fld$planting.barcode)
-	if ("order.id" %in% names(fld)) {
-		fld <- fld[, c("crop", "order.id", "dart.id", "planting.barcode")]
-		colnames(fld)[2:4] <- c("order", "sample", "inventory")
-	} else {
-		fld <- fld[, c("crop", "dart.id", "planting.barcode")]
-		colnames(fld)[2:3] <- c("sample", "inventory")	
-	}
+	wantnms <- c("crop", "order.id", "dart.id", "tosci.id", "planting.barcode", "var.name.full", "reference", "plate.id", "well.row", "well.col", "well.id")
+	newnms <-  c("crop", "order", "sample", "inventory", "inventory", "variety", "reference", "plate.id", "well.row", "well.col", "well.id" )
+	i <- which(wantnms %in% names(fld))
+	fld <- fld[, wantnms[i]]
+	names(fld) <- newnms[i]
 	fld$variety <- ""
 	fld$reference <- FALSE
 	
 	fref <- list.files(path, pattern="inventory", full.names=TRUE)
 	fref <- fref[substr(basename(fref), 1, 2) != "~$"]
 	ref <- as.data.frame(readxl::read_excel(fref, 2))
-	if ("order.id" %in% names(ref)) {
-		ref <- ref[, c("crop", "order.id", "dart.id", "var.name.full")]
-		colnames(ref)[2:4] <- c("order", "sample", "variety")
-	} else {
-		ref <- ref[, c("crop", "dart.id", "var.name.full")]
-		colnames(ref)[2:3] <- c("sample", "variety")	
-	}
-	ref$inventory <- ""
+	j <- which(wantnms %in% names(ref))
+	ref <- ref[, wantnms[j]]
+	names(ref) <- newnms[j]
 	ref$reference <- TRUE
 	
 	m <- matrix(byrow=TRUE, ncol=2, c(
@@ -170,8 +170,7 @@ get_varinfo <- function(path) {
 	#s = sort(tolower(unique(ref$variety)))
 	#b = table(gsub("-", "", gsub(" ", "", s)))
 	#b[b>1]
-
-	fldref <- rbind(fld, ref)
+	fldref <- bindr(fld, ref)
 	fldref$crop <- tolower(fldref$crop)
 	unique(fldref)	
 }
@@ -205,7 +204,6 @@ prepare_dart <- function(path, outpath) {
 	for (crop in crops) {
 		print(crop); utils::flush.console()
 		croppath <- file.path(path, crop)
-		copy_dart_files(croppath, outpath, x$order)
 
 		cropf <- list.files(croppath, pattern="SNP.csv$", full.names=TRUE, ignore.case=TRUE)
 		cropf2 <- gsub("SNP.csv$", "SNP_2row.csv", cropf)
@@ -213,26 +211,25 @@ prepare_dart <- function(path, outpath) {
 		countf <- gsub("SNP.csv$", "Counts.csv", cropf)
 
 		x <- matchpoint::read_dart(cropf) 
-		copy_dart_files(croppath, outpath, x$order)
+		matchpoint:::copy_dart_files(croppath, outpath, x$order)
 	
 		if (!file.exists(cropf2)) {
 			fout2 <- file.path(outpath, gsub("Report_", "", basename(cropf2)))
-			y <- matchpoint:::make_dart_2row(x)
+			y <- make_dart_2row(x)
 			matchpoint:::write_dart(y, fout2)
 		}
 		cnts0 <- matchpoint::read_dart(countf) 
-		cnts <- dart_make_unique(cnts0)
+		cnts <- matchpoint:::dart_make_unique(cnts0)
 		if (!identical(cnts, cnts0)) {
-			fout <- gsub("Report_", "", basename(countf))
-			write_dart(cnts, file.path(outpath, fout))
-			x <- dart_make_unique(x)
-			fout <- gsub("Report_", "", basename(cropf))
-			write_dart(x, file.path(outpath, fout))
-			cropf2 <- gsub("SNP.csv$", "SNP_2row.csv", cropf)
-			fout2 <- file.path(outpath, gsub("Report_", "", basename(cropf2)))
-			x2 <- matchpoint::read_dart(cropf2) 
-			x2 <- dart_make_unique(x2)
-			write_dart(x2, file.path(outpath, fout2))
+			fout <- file.path(outpath, gsub("Report_", "", basename(countf)))
+			matchpoint:::write_dart(cnts, fout)
+			x <- matchpoint:::dart_make_unique(x)
+			fout <- file.path(outpath, gsub("Report_", "", basename(cropf)))
+			matchpoint:::write_dart(x, fout)
+			fout2 <- gsub("SNP.csv$", "SNP_2row.csv", fout)
+			x2 <- matchpoint::read_dart(fout2) 
+			x2 <- matchpoint:::dart_make_unique(x2)
+			matchpoint:::write_dart(x2, fout2)
 		}
 
 		if (is.null(cnts$geno$TargetID)) {  # ETH teff

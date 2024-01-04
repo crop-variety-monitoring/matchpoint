@@ -101,6 +101,7 @@ make_dart_2row <- function(x) {
 	stopifnot(x$type=="1_row")
 	d <- x$snp
 	e <- x$marker 
+	
 	first  <- c(0,1,0,1)
 	second <- c(0,0,1,1)
 	dd <- as.matrix(d[,-1])
@@ -112,7 +113,18 @@ make_dart_2row <- function(x) {
 	a <- do.call(rbind, a)
 	a <- data.frame(rep(d[,1], each=2), as.vector(t(e[,2:3])), a)
 	names(a) <- c("MarkerName", "AlleleSequence", names(d)[-1])
+
+	e$id <- 1:nrow(e)
+	e <- rbind(e, e)
+	e <- e[order(e$id), ]
+	i <- seq(2, nrow(e), 2)
+	e[i,2] <- e[i,3]
+	e <- e[, -3]
+	colnames(e)[2] <- "AlleleSequence"
+	rownames(e) <- NULL
+
 	x$snp <- a
+	x$marker <- e
 	x$type=="2_row"
 	x
 }
