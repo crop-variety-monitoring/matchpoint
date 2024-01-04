@@ -1,20 +1,3 @@
-..clean_data_dist <- function(snp, genotypes, filename, verbose=TRUE) {
-#	filename <- fix_filename(filename)
-	smps <- gsub("_D.$", "", genotypes$sample)
-	snp <- remove_unknown_samples(snp, smps, verbose=verbose)
-#?	snp <- fix_duplicate_names(snp, verbose=verbose)
-	cns <- colnames(snp)[-1]
-	snp <- as.matrix(snp[, -1])
-	colnames(snp) <- cns
-	i <- match(cns, gsub("_D.$", "", genotypes$sample))
-	ref.id   <- cns[genotypes$reference[i]]
-	field.id <- cns[!genotypes$reference[i]]
-	i <- cns %in% ref.id
-	ref <- snp[,i]
-	field <- snp[,!i]
-	list(ref=ref, field=field, ref.id=ref.id, field.id=field.id, filename=filename)
-}
-
 
 hamming_distance <- function(ref, fld=NULL) {
 	if (is.null(fld)) {

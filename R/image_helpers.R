@@ -190,7 +190,7 @@ prepare_dart <- function(path, outpath) {
 	intpath <- gsub("raw/dart", "intermediate", path)
 	dir.create(outpath, FALSE, TRUE)
 	
-	varinfo <- get_varinfo(path)
+	varinfo <- matchpoint:::get_varinfo(path)
 
 	crops <- list.dirs(path, full.names=FALSE)
 	crops <- crops[crops != ""]
@@ -205,13 +205,21 @@ prepare_dart <- function(path, outpath) {
 	for (crop in crops) {
 		print(crop); utils::flush.console()
 		croppath <- file.path(path, crop)
+		copy_dart_files(croppath, outpath, x$order)
+
 		cropf <- list.files(croppath, pattern="SNP.csv$", full.names=TRUE, ignore.case=TRUE)
+		cropf2 <- gsub("SNP.csv$", "SNP_2row.csv", cropf)
 		stopifnot(length(cropf) == 1)
 		countf <- gsub("SNP.csv$", "Counts.csv", cropf)
 
 		x <- matchpoint::read_dart(cropf) 
 		copy_dart_files(croppath, outpath, x$order)
-
+	
+		if (!file.exists(cropf2)) {
+			fout2 <- file.path(outpath, gsub("Report_", "", basename(cropf2)))
+			y <- matchpoint:::make_dart_2row(x)
+			matchpoint:::write_dart(y, fout2)
+		}
 		cnts0 <- matchpoint::read_dart(countf) 
 		cnts <- dart_make_unique(cnts0)
 		if (!identical(cnts, cnts0)) {
@@ -221,7 +229,7 @@ prepare_dart <- function(path, outpath) {
 			fout <- gsub("Report_", "", basename(cropf))
 			write_dart(x, file.path(outpath, fout))
 			cropf2 <- gsub("SNP.csv$", "SNP_2row.csv", cropf)
-			fout2 <- gsub("Report_", "", basename(cropf2))
+			fout2 <- file.path(outpath, gsub("Report_", "", basename(cropf2)))
 			x2 <- matchpoint::read_dart(cropf2) 
 			x2 <- dart_make_unique(x2)
 			write_dart(x2, file.path(outpath, fout2))
