@@ -6,7 +6,7 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 				IBS_cutoff=0.5, Inb_method="mom.visscher", 
 				threads=4, verbose=FALSE, filename="") {
 
-	input <- prepare_data(x, genotypes, markers, filename=filename, verbose=verbose)
+	input <- matchpoint:::prepare_data(x, genotypes, markers, filename=filename, dupsuf="_x", verbose=verbose)
 	
 	meta1 <- data.frame(metric=c("n references", "n samples", "n markers"), 
 						value=c(length(input$ref.id), length(input$field.id), nrow(input$snp)))
@@ -106,6 +106,7 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 
 ### RH omitting genotypes / markers with too much missing data 
 	use_ids <- c(fld$fld_id[!fld$drop_miss], ref$ref_id[!ref$drop_miss])
+
 	ibs <- SNPRelate::snpgdsIBS(genofile, sample.id=use_ids, 
 		num.thread=threads, autosome.only=FALSE, verbose=verbose,
 		maf=MAF_cutoff, missing.rate=SNP_Missing_Rate)
@@ -125,16 +126,15 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 	out_match <- data.frame(FieldSample=colnames(out_all)[-i], out_match, check.names=FALSE)
 	rownames(out_match) <- NULL
 
-	mref_id <- gsub("_D.$", "", d$ref_id)
-	i <- match(mref_id, genotypes$sample)
+#	mref_id <- gsub("_D.$", "", d$ref_id)
+	i <- match(d$ref_id, genotypes$sample)
 	d$variety <- genotypes$variety[i]
 	d$ref_Tid <- genotypes$TargetID[i]
-	mfld_id <- gsub("_D.$", "", d$field_id)
-	i <- match(mfld_id, genotypes$sample)
+#	mfld_id <- gsub("_D.$", "", d$field_id)
+	i <- match(d$field_id, genotypes$sample)
 	d$field_Tid <- genotypes$TargetID[i]
 	
-	d <- d[with(d, order(field_id, -IBS)),]
-
+	d <- d[order(d$field_id, -d$IBS), ]
 # matches
 	best <- d[!duplicated(d$field_id),]
 	best <- merge(best, smp_mr, by.x="field_id", by.y="row.names", all.y=TRUE)
@@ -157,8 +157,6 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 	dups <- duplicated(ib[, c("field_id", "var_rank")])
 	output[[paste0("IBS_variety")]] <- ib[!dups, ]
 
-
-	
 	nr <- as.data.frame(table(field_id=d$field_id))
 	rept <- stats::aggregate(d[, "IBS", drop=FALSE], d[, "field_id", drop=FALSE], 
 			\(i) c(mean(i, na.rm=TRUE), stats::sd(i, na.rm=TRUE), length(stats::na.omit(i))))

@@ -1,4 +1,98 @@
 
+clean_dist_labels <- function(dst, vars, threshold, nmax=100, verbose=FALSE) {
+	sampids <- colnames(dst)
+	colnames(dst) <- rownames(dst) <- vars
+	dst <- (dst < threshold)
+	diag(dst) <- TRUE
+	n <- 1
+	while(TRUE) {
+		x = apply(dst, 1, which)
+		y = sapply(x, \(i) { length(unique(names(i))) > 1 })
+		idx <- which(y)
+		if (length(idx) == 0) break
+		ids <- x[[ idx[1] ]]
+		nms <- sort(unique(unlist(strsplit(names(ids), "-#-"))))
+		colnames(dst)[ids] <- rownames(dst)[ids] <- paste0(sort(nms), collapse="-#-")
+		n = n + 1
+		if (n > nmax) {
+			stop("unsuccessful")
+		}
+	}
+	if (verbose) print(n)
+
+	d <- data.frame(id=1:length(sampids), sample=sampids, from=vars, comb=colnames(dst), to=colnames(dst))
+
+	d$changed <- d$from != d$to
+	dc <- d[d$changed, ]
+	ag <- aggregate(dc$from, dc["to"], \(i) {
+			tab <- table(i) / length(i)
+			j <- tab > 0.5
+			if (any(j)) {
+				return(paste0(names(j[j]), " *"))
+			} else {
+				NA
+			}})
+	ag <- ag[!is.na(ag$x), ]
+	if (nrow(ag) > 1) {
+		nms <- colnames(d)
+		d <- merge(d, ag, by="to", all.x=TRUE)
+		d$to[!is.na(d$x)] <- d$x[!is.na(d$x)]
+		d <- d[,nms]
+	}
+	d$to <- gsub("-#-", " # ", d$to)
+	i <- gsub(" \\*", "", d$to) == d$from
+	d$to[i] <- d$from[i]
+	d <- d[order(d$id), ]
+	d$id <- NULL
+	rownames(d) <- NULL
+	d
+}
+
+
+
+remove_sparse_records <- function(x, sample_mr=0.2, snp_mr=0.2, rows=1, verbose=TRUE) {
+	# keep these 
+	i <- (rowSums(is.na(x[,-1])) / ncol(x)) <= snp_mr
+	if (any(!i)) {
+		if (rows != 1) {
+			j <- which(!i)
+			if (!all(j[-lenght(j)] == j[-1])) {
+				stop("check this")
+			}
+		}
+		x <- x[i, ]
+		if (verbose) {
+			message(paste("   removed", sum(!i), "marker(s) with too many missing values"))
+		}
+	}
+
+	i <- apply(snp[,-1], 1, \(i) length(na.omit(unique(i))))
+	i <- which(i < 2) # could be 0 or 1
+	if (length(i) > 0) {
+		if (rows != 1) {
+			j <- which(!i)
+			if (!all(j[-lenght(j)] == j[-1])) {
+				stop("check this")
+			}
+		}
+		snp <- snp[-i, ]
+		if (verbose) {
+			nr <- ifelse(x$type == "1_row", length(i), length(i)/2) 
+			message(paste("   removed", nr, "markers with no variation"))
+		}
+	}
+
+	# keep these 
+	i <- (colSums(is.na(x[,-1])) / nrow(x)) <= sample_mr
+	if (any(!i)) {
+		x <- x[, c(TRUE, i)]
+		if (verbose && any(!i)) {
+			message(paste("   removed", sum(!i), "sample(s) with too many missing values"))
+		}
+	}
+	x
+}
+
 
 fix_filename <- function(filename) {
 	filename <- trimws(filename)
@@ -11,15 +105,15 @@ fix_filename <- function(filename) {
 }
 
 
-fix_duplicate_names <- function(x, verbose=FALSE) {
+fix_duplicate_names <- function(x, suf="_D", verbose=FALSE) {
 	cn <- colnames(x)
 	tab <- table(cn)
 	dups <- tab[tab > 1]
 	if (length(dups) > 0) {
-		if (verbose) message("   adding _D1 _D2 to duplicates")
+		if (verbose) message(paste0("   adding ", suf, "* to duplicates"))
 		for (i in 1:length(dups)) {
 			n <- dups[i]
-			sfx <- paste0("_D", 1:n)
+			sfx <- paste0(suf, 1:n)
 			nm <- names(n)
 			cn[cn == nm] <- paste0(nm, sfx)
 		}
@@ -42,45 +136,21 @@ remove_unknown_samples <- function(x, sample.id, verbose=FALSE) {
 }
 
 
-prepare_data <- function(x, genotypes, markers=NULL, filename, missing_rate=NULL, verbose=FALSE) {
+prepare_data <- function(x, genotypes, markers=NULL, filename, missing_rate=NULL, dupsuf="_D", verbose=FALSE) {
 
 	filename <- matchpoint:::fix_filename(filename)
 	if (x$type != "1_row") {
+		nr <- 1
 		x$snp <- x$snp[,-2]
+	} else {
+		nr <- 2
 	}
 	
 	snp <- matchpoint:::remove_unknown_samples(x$snp, genotypes$sample, verbose=verbose)
-	snp <- matchpoint:::fix_duplicate_names(snp, verbose=verbose)
-
-	i <- apply(snp[,-1], 1, \(i) length(na.omit(unique(i))))
-	i <- which(i < 2) # could be 0 or 1
-	if (length(i) > 0) {
-		snp <- snp[-i, ]
-		if (verbose) {
-			message(paste("   removed", length(i)/2, "markers with no variation"))
-		}
-	}
+	snp <- matchpoint:::fix_duplicate_names(snp, suf=dupsuf, verbose=verbose)
 
 	if (!(is.null(missing_rate) || is.na(missing_rate))) {
-		# keep these 
-		i <- (rowSums(is.na(snp[,-1])) / ncol(snp)) <= missing_rate
-		if (any(!i)) {
-		# check if these are pairs?
-			snp <- snp[i, ]
-			if (verbose) {
-				message(paste("   removed", sum(!i), "marker(s) with too many missing values"))
-			}
-		}
-
-		# keep these 
-
-		i <- (colSums(is.na(snp[,-1])) / nrow(snp)) <= missing_rate
-		if (any(!i)) {
-			snp <- snp[, c(TRUE, i)]
-			if (verbose && any(!i)) {
-				message(paste("   removed", sum(!i), "sample(s) with too many missing values"))
-			}
-		}
+		snp <- remove_sparse_records(snp, missing_rate, missing_rate, rows=nr, verbose)
 	}
 	
 	cns <- colnames(snp)[-1]

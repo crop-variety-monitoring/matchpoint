@@ -1,4 +1,5 @@
 
+
 order_names <- function() {
 
 	d <- data.frame(
@@ -7,7 +8,7 @@ order_names <- function() {
 		iso3 = c("ETH", "ETH", "NGA", "NGA", "NGA", "NGA", "TZA", "TZA", "TZA", "TZA"),
 		country = c("Ethiopia", "Ethiopia", "Nigeria", "Nigeria", "Nigeria", "Nigeria", "Tanzania", "Tanzania", "Tanzania", "Tanzania")
 	)
-	d$cc <- paste(d$country, d$crop, sep="/")
+	d$cc <- paste(d$country, d$crop, sep=" / ")
 	d
 }
 	
@@ -28,7 +29,7 @@ make_unique_ids <- function(x) {
 }
 
 
-assign_info <- function(filename) {
+DAP_info <- function(filename) {
 	info <- utils::read.csv(filename)
 	out <- info["TargetID"]
 	out$Genotype <- make_unique_ids(info$sample)
@@ -38,7 +39,7 @@ assign_info <- function(filename) {
 }	
 
 
-assign_write_excel <- function(x, info, filename) {
+DAP_write_excel <- function(x, info, filename) {
 	nms <- names(x$res_full)
 	resfull = do.call(rbind, lapply(1:length(x$res_full), 
 				\(i) data.frame(field_TID=nms[i], x$res_full[[i]])))
@@ -141,8 +142,8 @@ get_varinfo <- function(path) {
 		"UL5095(F6303)", "UL 5095(F6303)",
 		"UL5218", "UL 5218",
 #NGA 
-		"SC 645", "SC645",
-		"SC 419", "SC419",
+		"SC645", "SC 645",
+		"SC419", "SC 419",
 		"SAMMAZ-11", "SAMMAZ 11",
 		"WAC 42PVEE", "WAC42PVEE",
 		"OBASUPER 1", "OBA SUPER 1",
