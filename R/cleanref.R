@@ -1,4 +1,18 @@
 
+var_dist <- function(d, varieties) {
+	diag(d) <- NA
+	u <- unique(varieties)
+	v <- sapply(1:length(u), \(i) {
+		j <- which(u[i] == varieties)
+		dv <- d[j, j]
+		mean(dv, na.rm=TRUE)
+	})
+	v[!is.finite(v)] <- 0
+	v
+}
+
+
+
 clean_reference <- function(dst, vars, threshold, nmax=100, verbose=FALSE) {
 	sampids <- colnames(dst)
 	colnames(dst) <- rownames(dst) <- vars
