@@ -1,62 +1,13 @@
 
-clean_dist_labels <- function(dst, vars, threshold, nmax=100, verbose=FALSE) {
-	sampids <- colnames(dst)
-	colnames(dst) <- rownames(dst) <- vars
-	dst <- (dst < threshold)
-	diag(dst) <- TRUE
-	n <- 1
-	while(TRUE) {
-		x = apply(dst, 1, which)
-		y = sapply(x, \(i) { length(unique(names(i))) > 1 })
-		idx <- which(y)
-		if (length(idx) == 0) break
-		ids <- x[[ idx[1] ]]
-		nms <- sort(unique(unlist(strsplit(names(ids), "-#-"))))
-		colnames(dst)[ids] <- rownames(dst)[ids] <- paste0(sort(nms), collapse="-#-")
-		n = n + 1
-		if (n > nmax) {
-			stop("unsuccessful")
-		}
-	}
-	if (verbose) print(n)
 
-	d <- data.frame(id=1:length(sampids), sample=sampids, from=vars, comb=colnames(dst), to=colnames(dst))
-
-	d$changed <- d$from != d$to
-	dc <- d[d$changed, ]
-	ag <- aggregate(dc$from, dc["to"], \(i) {
-			tab <- table(i) / length(i)
-			j <- tab > 0.5
-			if (any(j)) {
-				return(paste0(names(j[j]), " *"))
-			} else {
-				NA
-			}})
-	ag <- ag[!is.na(ag$x), ]
-	if (nrow(ag) > 1) {
-		nms <- colnames(d)
-		d <- merge(d, ag, by="to", all.x=TRUE)
-		d$to[!is.na(d$x)] <- d$x[!is.na(d$x)]
-		d <- d[,nms]
-	}
-	d$to <- gsub("-#-", " # ", d$to)
-	i <- gsub(" \\*", "", d$to) == d$from
-	d$to[i] <- d$from[i]
-	d <- d[order(d$id), ]
-	d$id <- NULL
-	rownames(d) <- NULL
-	d
-}
-
-
-
-remove_sparse_records <- function(x, sample_mr=0.2, snp_mr=0.2, rows=1, verbose=TRUE) {
+remove_sparse_records <- function(x, sample_mr=0.2, snp_mr=0.2, rows, verbose=TRUE) {
 	# keep these 
 	i <- (rowSums(is.na(x[,-1])) / ncol(x)) <= snp_mr
 	if (any(!i)) {
 		if (rows != 1) {
 			j <- which(!i)
-			if (!all(j[-lenght(j)] == j[-1])) {
+			k <- rep_len(1:2, length.out=length(j)) 
+			if (!all(j[k==1] == (j[k==2]-1))) {
 				stop("check this")
 			}
 		}
@@ -66,16 +17,17 @@ remove_sparse_records <- function(x, sample_mr=0.2, snp_mr=0.2, rows=1, verbose=
 		}
 	}
 
-	i <- apply(snp[,-1], 1, \(i) length(na.omit(unique(i))))
+	i <- apply(x[,-1], 1, \(i) length(na.omit(unique(i))))
 	i <- which(i < 2) # could be 0 or 1
 	if (length(i) > 0) {
 		if (rows != 1) {
 			j <- which(!i)
-			if (!all(j[-lenght(j)] == j[-1])) {
+			k <- rep_len(1:2, length.out=length(j)) 
+			if (!all(j[k==1] == (j[k==2]-1))) {
 				stop("check this")
 			}
 		}
-		snp <- snp[-i, ]
+		x <- x[-i, ]
 		if (verbose) {
 			nr <- ifelse(x$type == "1_row", length(i), length(i)/2) 
 			message(paste("   removed", nr, "markers with no variation"))

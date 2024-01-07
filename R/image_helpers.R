@@ -103,6 +103,7 @@ get_varinfo <- function(path) {
 		"KIPAPI", "Kipapi",
 		"KIzimbani", "Kizimbani",
 		"Kibanda Memo", "Kibanda meno",
+		"Kibanda memo", "Kibanda meno",
 		"Nerika 4", "NERICA 4",
 		'SUPA', 'Supa',  
 		'TAI', 'Tai',
