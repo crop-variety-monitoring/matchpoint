@@ -6,7 +6,7 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 				IBS_cutoff=0.5, Inb_method="mom.visscher", 
 				threads=4, verbose=FALSE, filename="") {
 
-	input <- matchpoint:::prepare_data(x, genotypes, markers, filename=filename, dupsuf="_x", verbose=verbose)
+	input <- matchpoint:::prepare_data(x, genotypes, markers, filename=filename, dupsuf="_D", verbose=verbose)
 	
 	meta1 <- data.frame(metric=c("n references", "n samples", "n markers"), 
 						value=c(length(input$ref.id), length(input$field.id), nrow(input$snp)))
@@ -126,12 +126,14 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 	out_match <- data.frame(FieldSample=colnames(out_all)[-i], out_match, check.names=FALSE)
 	rownames(out_match) <- NULL
 
-#	mref_id <- gsub("_D.$", "", d$ref_id)
-	i <- match(d$ref_id, genotypes$sample)
+	mref_id <- gsub("_D.$", "", d$ref_id)
+	i <- match(mref_id, genotypes$sample)
+	if (any(is.na(i))) stop("check ID comparison")
 	d$variety <- genotypes$variety[i]
 	d$ref_Tid <- genotypes$TargetID[i]
-#	mfld_id <- gsub("_D.$", "", d$field_id)
-	i <- match(d$field_id, genotypes$sample)
+	mfld_id <- gsub("_D.$", "", d$field_id)
+	i <- match(mfld_id, genotypes$sample)
+	if (any(is.na(i))) stop("check ID comparison")
 	d$field_Tid <- genotypes$TargetID[i]
 	
 	d <- d[order(d$field_id, -d$IBS), ]

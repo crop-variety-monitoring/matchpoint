@@ -40,6 +40,7 @@ DAP_info <- function(filename) {
 
 
 DAP_write_excel <- function(x, info, filename) {
+
 	nms <- names(x$res_full)
 	resfull = do.call(rbind, lapply(1:length(x$res_full), 
 				\(i) data.frame(field_TID=nms[i], x$res_full[[i]])))
@@ -75,13 +76,18 @@ get_varinfo <- function(path) {
 	}
 	fld <- as.data.frame(readxl::read_excel(ffld, 2))
 	fld$planting.barcode <- gsub(".jpg", "", fld$planting.barcode)
-	wantnms <- c("crop", "order.id", "dart.id", "tosci.id", "planting.barcode", "var.name.full", "reference", "plate.id", "well.row", "well.col", "well.id")
-	newnms <-  c("crop", "order", "sample", "inventory", "inventory", "variety", "reference", "plate.id", "well.row", "well.col", "well.id" )
+	wantnms <- c("crop", "order.id", "dart.id", "tosci.id", "planting.barcode", "var.name.full", "reference", "plate.id", "well.row", "well.col", "plate_row", "plate_col", "well.id")
+	newnms <-  c("crop", "order", "sample", "inventory", "inventory", "variety", "reference", "plate.id", "well.row", "well.col", "well.row", "well.col", "well.id")
 	i <- which(wantnms %in% names(fld))
 	fld <- fld[, wantnms[i]]
 	names(fld) <- newnms[i]
 	fld$variety <- ""
 	fld$reference <- FALSE
+	if (!is.null(fld$well.id)) {
+		fld$well.row <- substr(fld$well.id, 1, 1)
+		fld$well.col <-	substr(fld$well.id, 2, 3)
+		fld$well.id <- NULL
+	}
 	
 	fref <- list.files(path, pattern="inventory", full.names=TRUE)
 	fref <- fref[substr(basename(fref), 1, 2) != "~$"]
@@ -178,11 +184,11 @@ get_varinfo <- function(path) {
 }
 
 
-copy_dart_files <- function(path, outpath, ordernr) {
+copy_dart_files <- function(path, outpath, ordernr, overwrite=FALSE) {
 	ff <- list.files(path, pattern=paste0("^Report_", ordernr, ".*.csv$"), ignore.case=TRUE, full.names=TRUE)
 	outff <- gsub("Report_", "", basename(ff))
 	dir.create(outpath, FALSE, TRUE)
-	file.copy(ff, file.path(outpath, outff))
+	file.copy(ff, file.path(outpath, outff), overwrite=overwrite)
 }
 
 
@@ -235,7 +241,7 @@ prepare_dart <- function(path, outpath) {
 		}
 
 		if (is.null(cnts$geno$TargetID)) {  # ETH teff
-			x$geno$TargetID <- NA
+			x$geno$TargetID <- x$geno$genotype
 		} else {
 			i <- match(x$geno$genotype, cnts$geno$genotype)
 			x$geno$TargetID <- cnts$geno$TargetID[i]

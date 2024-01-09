@@ -106,7 +106,7 @@ prepare_data <- function(x, genotypes, markers=NULL, filename, missing_rate=NULL
 	}
 	
 	cns <- colnames(snp)[-1]
-	i <- match(cns, genotypes$sample)
+	i <- match(gsub(paste0(dupsuf, ".$"), "", cns), genotypes$sample)
 	ref.id <- cns[genotypes$reference[i]]
 	field.id <- cns[!genotypes$reference[i]]
 	gds <- NULL
