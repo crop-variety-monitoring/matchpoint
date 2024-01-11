@@ -175,7 +175,11 @@ get_varinfo <- function(path) {
 		"SAMMAZ-11"
 		ref$variety <- gsub("ARICA-", "SAMPEA ", ref$variety)
 	}	
-	#s = sort(tolower(unique(ref$variety)))
+	
+	nuv <- length(unique(ref$variety))
+	uv <- gsub(" ", "", (tolower(unique(ref$variety))))
+	uv <- gsub("-", "", uv)
+	stopifnot(length(uv) == nuv)
 	#b = table(gsub("-", "", gsub(" ", "", s)))
 	#b[b>1]
 	fldref <- bindr(fld, ref)

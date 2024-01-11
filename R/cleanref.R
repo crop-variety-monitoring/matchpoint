@@ -1,5 +1,6 @@
 
 var_dist <- function(d, varieties) {
+	d <- as.matrix(d)
 	diag(d) <- NA
 	u <- unique(varieties)
 	v <- sapply(1:length(u), \(i) {
