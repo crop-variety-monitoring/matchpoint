@@ -2,11 +2,11 @@ Package: matchpoint
 Description: Match sample varieties to a reference using SNP data. 
 Type: Package
 Title: Match crop varieties to a reference
-Version: 0.1-2
-Date: 2024-01-02
+Version: 0.1-3
+Date: 2024-01-11
 biocViews:
 Depends: R (>= 3.5.0)
-Suggests: SNPRelate, readxl, DT, data.table, leaflet, shiny, semantic.dashboard, shiny.semantic, shinybusy, shinyjs, writexl
+Suggests: SNPRelate, readxl, writexl, igraph, data.table
 Author: Jinliang Yang, J. Luis Mijangos, Robert J. Hijmans
 Maintainer: <r.hijmans@gmail.com>
 License: GPL (>=3)

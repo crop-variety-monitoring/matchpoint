@@ -12,6 +12,46 @@ var_dist <- function(d, varieties) {
 	v
 }
 
+break_far_relatives <- function(dstm, vars, threshold, verbose=FALSE) {
+	adj <- (dstm < threshold)
+	uvars <- unique(vars)
+	for (v in uvars) {
+		i <- which(vars == v)
+		a <- adj[i,i]
+		if (all(a)) next
+		
+		# break far apart clusters 
+		g <- igraph::graph_from_adjacency_matrix(a)
+		n <- igraph::count_components(g)
+		if (n == 1) next 
+		m <- igraph::clusters(g)$membership
+
+		# do not break nearest neighbors
+		for (j in 1:n) {
+			ids <- i[m == j]
+			if (any(is.na(ids))) next
+			d <- dstm[ids, ,drop=FALSE]
+			d[cbind(1:length(ids), ids)] <- Inf
+			nearest <- apply(d, 1, \(k) which(k == min(k))) |> unlist() |> unique()
+			nearest <- nearest[nearest %in% i[m != j]]
+			if (length(nearest) > 0) {
+				# this cluster 
+				i[m == j] <- NA
+				# near cluster(s)
+				k <- which(i %in% nearest)
+				i[m %in% unique(m[k])] <- NA
+			}
+		}
+		m <- m[!is.na(i)]
+		i <- i[!is.na(i)]
+		if (length(i) > 0) {
+			vars[i] <- paste0(vars[i], "__", letters[m])
+			if (verbose) print(vars[i])
+		}
+	}
+	vars
+}
+
 
 
 clean_reference <- function(dst, vars, threshold, nmax=100, verbose=FALSE) {

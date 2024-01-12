@@ -1,4 +1,5 @@
 
+
 hamming_distance <- function(ref, fld=NULL) {
 	if (is.null(fld)) {
 		out <- matrix(NA, ncol=ncol(ref), nrow=ncol(ref))
@@ -75,15 +76,14 @@ match_distance <- function(x, genotypes, missing_rate=0.25, comp_all=FALSE, file
 
 	input <- matchpoint:::prepare_data(x, genotypes, missing_rate=missing_rate, filename=filename, verbose=verbose)
 
-
 	if (x$type == "counts") {
-		if (comp_all) {
-			dst <- counts_distance(input$snp[, -1])
-		} else {
-			fld <- input$snp[, colnames(input$snp) %in% input$field.id]
-			ref <- input$snp[, colnames(input$snp) %in% input$ref.id]
-			dst <- counts_distance(ref, fld)
+		dst <- poppr::nei.dist(as.matrix(input$snp[, -1]))
+		if (!comp_all) {
+			fld <- colnames(input$snp) %in% input$field.id
+			ref <- colnames(input$snp) %in% input$ref.id
+			dst <- as.matrix(dst)[ref, fld]
 		}
+		if (filename != "") filename <- paste0(filename, "_NEI.xlsx")
 	} else if (x$type == "2_row") {
 		if (comp_all) {
 			dst <- matchpoint:::hamming_distance(input$snp[, -1])
@@ -92,6 +92,7 @@ match_distance <- function(x, genotypes, missing_rate=0.25, comp_all=FALSE, file
 			ref <- input$snp[, colnames(input$snp) %in% input$ref.id]
 			dst <- matchpoint:::hamming_distance(ref, fld)
 		}
+		if (filename != "") filename <- paste0(filename, "_HAM.xlsx")
 	} else { # make 2_row?
 		stop("need a counts or 2_row object")
 	}
@@ -103,7 +104,8 @@ match_distance <- function(x, genotypes, missing_rate=0.25, comp_all=FALSE, file
 	if (filename != "") {
 		output$distance <- as.data.frame(output$distance, check.names=FALSE)
 		output$similarity <- as.data.frame(output$similarity, check.names=FALSE)
-		writexl::write_xlsx(output, paste0(filename, "_HAM.xlsx"), format_headers=FALSE)
+		
+		writexl::write_xlsx(output, filename, format_headers=FALSE)
 		invisible(output)
 	} else {
 		output

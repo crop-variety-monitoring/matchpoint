@@ -7,7 +7,7 @@ Use a distance metric to match field samples to references
 }
 
 \description{
-Use a distance metric with SNP data to match field samples to references
+Use a distance metric with SNP data to match field samples to references. The Hamming distance is used with a two_row DaRT file. The Nei distance is used with a counts file
 }
 
 \usage{
