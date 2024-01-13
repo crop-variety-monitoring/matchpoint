@@ -1,48 +1,4 @@
 
-
-nngb_dist <- function(x, fun=min) {
-	x <- as.matrix(x)
-	stopifnot(all(nrow(x) == ncol(x)))
-	#stopifnot(all(colnames(x) == rownames(x)))
-	stopifnot(length(unique(colnames(x))) < ncol(x))
-	vars <- colnames(x)
-	u <- unique(vars)
-	d <- sapply(1:length(u), \(i) {
-		j <- which(u[i] == vars)
-		dv <- x[j, ,drop=FALSE]
-		dv[, j] <- NA
-		fun(dv, na.rm=TRUE)
-	})
-	if (NCOL(d) == 1) {
-		data.frame(group=u, value=d)
-	} else { # e.g. fun=quantile
-		data.frame(group=u, t(d))		
-	}
-}
-
-
-self_dist <- function(x, fun=mean) {
-	x <- as.matrix(x)
-	stopifnot(nrow(x) == ncol(x))
-	#stopifnot(all(colnames(x) == rownames(x)))
-	stopifnot(length(unique(colnames(x))) < ncol(x))
-	diag(x) <- NA
-	vars <- colnames(x)
-	u <- unique(vars)
-	d <- sapply(1:length(u), \(i) {
-		j <- which(u[i] == vars)
-		dv <- x[j, j, drop=FALSE]
-		fun(dv, na.rm=TRUE)
-	})
-	d[!is.finite(d)] <- 0
-	if (NCOL(d) == 1) {
-		data.frame(group=u, value=d)
-	} else { # e.g. fun=quantile
-		data.frame(group=u, t(d))		
-	}
-}
-
-
 split_groups <- function(x, threshold, keep_nngb=TRUE, verbose=FALSE) {
 	keep <- x
 	x <- as.matrix(x)
@@ -96,7 +52,6 @@ split_groups <- function(x, threshold, keep_nngb=TRUE, verbose=FALSE) {
 	}
 	keep
 }
-
 
 
 
@@ -169,62 +124,4 @@ lump_similar <- function(x, threshold, verbose=FALSE) {
 }
 	
 
-
-
-old_lump_similar <- function(x, threshold, nmax=100, verbose=FALSE) {
-
-	vars <- colnames(x)
-	stopifnot(nrow(x) == ncol(x))
-	stopifnot(all(colnames(x) == rownames(x)))
-	stopifnot(length(unique(colnames(x))) < ncol(x))
-
-	# colnames(dst) <- rownames(dst) <- vars
-	dst <- (dst < threshold)
-	diag(dst) <- TRUE
-	n <- 1
-	while(TRUE) {
-		x <- apply(dst, 1, which)
-		y <- sapply(x, \(i) { length(unique(names(i))) > 1 })
-		idx <- which(y)
-		if (length(idx) == 0) break
-		ids <- x[[ idx[1] ]]
-		nms <- sort(unique(unlist(strsplit(names(ids), "-#-"))))
-		nms <- paste0(sort(nms), collapse="-#-")
-		colnames(dst)[ids] <- rownames(dst)[ids] <- nms 
-		n = n + 1
-		if (n > nmax) {
-			warning("clean ref unsuccessful")
-			break
-		}
-	}
-	if (verbose) print(n)
-
-	d <- data.frame(id=1:length(vars), from=vars, comb=colnames(dst), to=colnames(dst))
-	d$changed <- d$from != d$to
-	dc <- d[d$changed, ]
-	if (nrow(dc) > 0) {
-		ag <- stats::aggregate(dc$from, dc["to"], \(i) {
-				tab <- table(i) / length(i)
-				j <- tab > 0.5
-				if (any(j)) {
-					return(paste0(names(j[j]), " *"))
-				} else {
-					NA
-				}})
-		ag <- ag[!is.na(ag$x), ]
-		if (nrow(ag) > 1) {
-			nms <- colnames(d)
-			d <- merge(d, ag, by="to", all.x=TRUE)
-			d$to[!is.na(d$x)] <- d$x[!is.na(d$x)]
-			d <- d[,nms]
-		}
-		d$to <- gsub("-#-", " # ", d$to)
-#		i <- gsub(" \\*", "", d$to) == d$from
-#		d$to[i] <- d$from[i]
-		d$to <- gsub("\\* \\*$", "*", d$to)
-		d <- d[order(d$id), ]
-	}
-	dimnames(dst) <- list(d$to, d$to)
-	dst
-}
 

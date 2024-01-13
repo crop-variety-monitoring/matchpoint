@@ -53,7 +53,8 @@ DAP_write_excel <- function(x, info, filename) {
 	x[[2]] <- full
 	colnames(x$res_summary)[1:7] <- c("field_Tid", "field_id", "ref_Tid", "ref_id", "variety", "NA.perc", "Probability")
 	x$res_summary$Probability <- x$res_summary$Probability/100
-	writexl::write_xlsx(x[1:2], paste0(filename, ".xlsx"))
+	x[[3]] <- as.data.frame(x$ref_distance, check.names=FALSE)
+	writexl::write_xlsx(x[1:3], paste0(filename, ".xlsx"))
 }
 
 
@@ -66,37 +67,8 @@ bindr <- function( ...) {
 }
 
 
+fix_varnames <- function(vars) {
 
-get_varinfo <- function(path) {
-
-	ffld <- list.files(path, pattern="identifier", full.names=TRUE)
-	ffld <- ffld[substr(basename(ffld), 1, 2) != "~$"]
-	if (length(ffld) == 0) {
-		stop("no identifier file found. Check path?")
-	}
-	fld <- as.data.frame(readxl::read_excel(ffld, 2))
-	fld$planting.barcode <- gsub(".jpg", "", fld$planting.barcode)
-	wantnms <- c("crop", "order.id", "dart.id", "tosci.id", "planting.barcode", "var.name.full", "reference", "plate.id", "well.row", "well.col", "plate_row", "plate_col", "well.id")
-	newnms <-  c("crop", "order", "sample", "inventory", "inventory", "variety", "reference", "plate.id", "well.row", "well.col", "well.row", "well.col", "well.id")
-	i <- which(wantnms %in% names(fld))
-	fld <- fld[, wantnms[i]]
-	names(fld) <- newnms[i]
-	fld$variety <- ""
-	fld$reference <- FALSE
-	if (!is.null(fld$well.id)) {
-		fld$well.row <- substr(fld$well.id, 1, 1)
-		fld$well.col <-	substr(fld$well.id, 2, 3)
-		fld$well.id <- NULL
-	}
-	
-	fref <- list.files(path, pattern="inventory", full.names=TRUE)
-	fref <- fref[substr(basename(fref), 1, 2) != "~$"]
-	ref <- as.data.frame(readxl::read_excel(fref, 2))
-	j <- which(wantnms %in% names(ref))
-	ref <- ref[, wantnms[j]]
-	names(ref) <- newnms[j]
-	ref$reference <- TRUE
-	
 	m <- matrix(byrow=TRUE, ncol=2, c(
 # TZA
 		"BORA", "Bora",
@@ -110,6 +82,7 @@ get_varinfo <- function(path) {
 		"KIzimbani", "Kizimbani",
 		"Kibanda Memo", "Kibanda meno",
 		"Kibanda memo", "Kibanda meno",
+		"Kibanda Meno", "Kibanda meno",
 		"Nerika 4", "NERICA 4",
 		'SUPA', 'Supa',  
 		'TAI', 'Tai',
@@ -162,24 +135,62 @@ get_varinfo <- function(path) {
 		"NR-8083", "NR 8083"
 	))
 
-	h <- cbind(1:nrow(ref), match(ref$variety, m[,1])) 
+	h <- cbind(1:length(vars), match(vars, m[,1])) 
 	h <- h[!is.na(h[,2]), ]
 	if (nrow(h) > 0) {
 #TZA
-		ref$variety[h[,1]] <- m[h[,2], 2]
-		ref$variety <- gsub("Nerica", "NERICA", ref$variety)
-		ref$variety <- gsub("TARI CASS", "TARI CASS ", ref$variety)
-		ref$variety <- gsub("TARICASS", "TARI CASS ", ref$variety)
+		vars[h[,1]] <- m[h[,2], 2]
+		vars <- gsub("Nerica", "NERICA", vars)
+		vars <- gsub("NERICA-", "NERICA ", vars)
+		vars <- gsub("TARI CASS", "TARI CASS ", vars)
+		vars <- gsub("TARICASS", "TARI CASS ", vars)
 #NGA 
-		ref$variety <- gsub("SAMPEA-", "SAMPEA ", ref$variety)
+		vars <- gsub("SAMPEA-", "SAMPEA ", vars)
 		"SAMMAZ-11"
-		ref$variety <- gsub("ARICA-", "SAMPEA ", ref$variety)
+		vars <- gsub("ARICA-", "SAMPEA ", vars)
 	}	
 	
-	nuv <- length(unique(ref$variety))
-	uv <- gsub(" ", "", (tolower(unique(ref$variety))))
-	uv <- gsub("-", "", uv)
-	stopifnot(length(uv) == nuv)
+	vars
+}	
+
+
+
+get_varinfo <- function(path, fix_vars=TRUE) {
+
+	ffld <- list.files(path, pattern="identifier", full.names=TRUE)
+	ffld <- ffld[substr(basename(ffld), 1, 2) != "~$"]
+	if (length(ffld) == 0) {
+		stop("no identifier file found. Check path?")
+	}
+	fld <- as.data.frame(readxl::read_excel(ffld, 2))
+	fld$planting.barcode <- gsub(".jpg", "", fld$planting.barcode)
+	wantnms <- c("crop", "order.id", "dart.id", "tosci.id", "planting.barcode", "var.name.full", "reference", "plate.id", "well.row", "well.col", "plate_row", "plate_col", "well.id")
+	newnms <-  c("crop", "order", "sample", "inventory", "inventory", "variety", "reference", "plate.id", "well.row", "well.col", "well.row", "well.col", "well.id")
+	i <- which(wantnms %in% names(fld))
+	fld <- fld[, wantnms[i]]
+	names(fld) <- newnms[i]
+	fld$variety <- ""
+	fld$reference <- FALSE
+	if (!is.null(fld$well.id)) {
+		fld$well.row <- substr(fld$well.id, 1, 1)
+		fld$well.col <-	substr(fld$well.id, 2, 3)
+		fld$well.id <- NULL
+	}
+	
+	fref <- list.files(path, pattern="inventory", full.names=TRUE)
+	fref <- fref[substr(basename(fref), 1, 2) != "~$"]
+	ref <- as.data.frame(readxl::read_excel(fref, 2))
+	j <- which(wantnms %in% names(ref))
+	ref <- ref[, wantnms[j]]
+	names(ref) <- newnms[j]
+	ref$reference <- TRUE
+	if (fix_vars) {
+		ref$variety <- fix_varnames(ref$variety)
+		nuv <- length(unique(ref$variety))
+		uv <- gsub(" ", "", (tolower(unique(ref$variety))))
+		uv <- gsub("-", "", uv)
+		stopifnot(length(unique(uv)) == nuv)
+	}
 	#b = table(gsub("-", "", gsub(" ", "", s)))
 	#b[b>1]
 	fldref <- bindr(fld, ref)
@@ -212,10 +223,11 @@ prepare_dart <- function(path, outpath) {
 	if (length(floc) == 1) {
 		loc <- as.data.frame(readxl::read_excel(floc))
 	}
-
 	for (crop in crops) {
 		print(crop); utils::flush.console()
 		croppath <- file.path(path, crop)
+
+		inf <- varinfo[varinfo$crop == crop, ]
 
 		cropf <- list.files(croppath, pattern="SNP.csv$", full.names=TRUE, ignore.case=TRUE)
 		cropf2 <- gsub("SNP.csv$", "SNP_2row.csv", cropf)
@@ -224,32 +236,91 @@ prepare_dart <- function(path, outpath) {
 
 		x <- matchpoint::read_dart(cropf) 
 		matchpoint:::copy_dart_files(croppath, outpath, x$order)
-	
+
+		foutc <- file.path(outpath, gsub("Report_", "", basename(countf)))
+		fout1 <- file.path(outpath, gsub("Report_", "", basename(cropf)))
+		fout2 <- gsub("SNP.csv$", "SNP_2row.csv", fout1)
 		if (!file.exists(cropf2)) {
-			fout2 <- file.path(outpath, gsub("Report_", "", basename(cropf2)))
+			message("creating 2 row file")
 			y <- make_dart_2row(x)
 			matchpoint:::write_dart(y, fout2)
 		}
-		cnts0 <- matchpoint::read_dart(countf) 
-		cnts <- matchpoint:::dart_make_unique(cnts0)
-		if (!identical(cnts, cnts0)) {
-			fout <- file.path(outpath, gsub("Report_", "", basename(countf)))
-			matchpoint:::write_dart(cnts, fout)
-			x <- matchpoint:::dart_make_unique(x)
-			fout <- file.path(outpath, gsub("Report_", "", basename(cropf)))
-			matchpoint:::write_dart(x, fout)
-			fout2 <- gsub("SNP.csv$", "SNP_2row.csv", fout)
-			x2 <- matchpoint::read_dart(fout2) 
-			x2 <- matchpoint:::dart_make_unique(x2)
-			matchpoint:::write_dart(x2, fout2)
-		}
 
-		if (is.null(cnts$geno$TargetID)) {  # ETH teff
-			x$geno$TargetID <- x$geno$genotype
-		} else {
-			i <- match(x$geno$genotype, cnts$geno$genotype)
-			x$geno$TargetID <- cnts$geno$TargetID[i]
-		}
+		cnts0 <- matchpoint::read_dart(countf) 
+		cnts <- matchpoint:::dart_make_unique(cnts0)		
+
+		if (!identical(cnts, cnts0)) {  # Ethiopia
+			message("not identical cnts cnts0")
+			i <- duplicated(cnts0$geno)
+			if (any(i)) {
+				message("removing duplicate count data")
+				cnts0$geno <- cnts0$geno[!i, ]
+				cnts0$snp  <- cnts0$snp[, c(1, 2, which(!i)+2)]
+			}
+			cnts <- matchpoint:::dart_make_unique(cnts0)		
+			
+			x2 <- matchpoint::read_dart(cropf2) 
+			
+			patrn <- " \\[Original species: Eragrostis tef\\]"
+			x$geno$plate_id <- gsub(patrn, "", x$geno$plate_id)
+			x2$geno$plate_id <- gsub(patrn, "", x2$geno$plate_id)
+			cnts$geno$plate_id <- gsub(patrn, "", cnts$geno$plate_id)
+
+			if (is.null(cnts$geno$TargetID)) {
+				message("no TargetID")
+				## no TargetID
+				cnts$geno$TargetID <- cnts$geno$genotype
+				colnames(cnts$snp)[-(1:2)] <- cnts$geno$genotype
+			}
+
+			mflds <- c("plate_barcode", "plate_row", "plate_col", "genotype")
+			tom <- cnts$geno[, mflds]
+			tom$new_genotype <- tom$genotype
+			tom$genotype <- gsub("_D.$", "", tom$genotype)
+
+			matchm <- function(d, y=1) {
+				d$geno$id <- 1:nrow(d$geno)
+				m <- merge(d$geno, tom, by=mflds, all=TRUE)
+				m <- m[order(m$id), ]				
+				stopifnot(all(m$genotype == gsub("_D.$", "", m$new_genotype)))
+				m$genotype <- NULL
+				d$geno$id <- NULL
+				colnames(m) <- gsub("new_genotype", "genotype", colnames(m))
+				d$geno <- m[, colnames(d$geno)]
+				colnames(d$snp)[-y] <- d$geno$genotype
+				d
+			}
+			
+			x <- matchm(x)
+			x2 <- matchm(x2, 1:2)
+			
+			inf <- inf[, c("crop", "sample", "inventory", "variety", "reference")]
+
+			m <- merge(inf, tom, by.x="sample", by.y="genotype")
+			m$sample <- m$new_genotype
+			m$new_genotype <- NULL
+			cns <- gsub("plate_barcode", "plate.id", colnames(m))
+			cns <- gsub("plate_row", "well.row", cns)
+			colnames(m) <- gsub("plate_col", "well.col", cns)
+			inf <- m[, colnames(varinfo)]
+
+			matchpoint:::write_dart(cnts, foutc)
+			matchpoint:::write_dart(x, fout1)
+			matchpoint:::write_dart(x2, fout2)
+			
+#			head(cnts0$geno)		
+#			cnts$snp[1:4, 1:6]
+#			head(cnts$geno)
+#			x$snp[1:4, 1:6]
+#			head(x$geno)			
+		} 
+		
+		stopifnot(length(unique(colnames(x$snp))) == ncol(x$snp))
+		stopifnot(length(unique(colnames(cnts$snp))) == ncol(cnts$snp))
+
+		i <- match(x$geno$genotype, cnts$geno$genotype)
+		x$geno$TargetID <- cnts$geno$TargetID[i]
+
 		colnames(x$marker)[colnames(x$marker) == "AlleleID"] <- "MarkerName"
 		colnames(x$snp)[colnames(x$snp) == "AlleleID"] <- "MarkerName"
 		#colnames(x$snp) <- make_unique_ids(colnames(x$snp))
@@ -257,7 +328,7 @@ prepare_dart <- function(path, outpath) {
 		x$marker$MarkerName <- toupper(x$marker$MarkerName)
 		x$snp$MarkerName <- toupper(x$snp$MarkerName)
 
-		x <- matchpoint::make_dart_1row(x)
+		#x <- matchpoint::make_dart_1row(x)
 		x$type <- NULL
 
 		pos <- matchpoint::marker_positions(crop)
@@ -275,7 +346,6 @@ prepare_dart <- function(path, outpath) {
 		m$order <- NULL
 		x$marker <- m
 
-		inf <- varinfo[varinfo$crop == crop, ]
 	
 		if (!is.null(loc)) {
 			n <- nrow(inf)
@@ -284,25 +354,28 @@ prepare_dart <- function(path, outpath) {
 			inf <- inf[, c(names(varinfo), c("longitude", "latitude"))]
 		}
 		
-		x$geno$geno_match <- gsub("_D.$", "", x$geno$genotype)
+	#	x$geno$geno_match <- gsub("_D.$", "", x$geno$genotype)
 		
 		if ("order" %in% names(inf)) {
-			x$info <- merge(inf, x$geno, by.x=c("order", "sample"), by.y=c("order", "geno_match"))
+			x$info <- merge(inf, x$geno, by.x=c("order", "sample"), by.y=c("order", "genotype"))
 			if (nrow(unique(x$info[, c("order", "sample")])) != nrow(x$info)) {
 				message("info-file order/sample numbers were not unique")
 			}
 		} else {
-			x$info <- merge(inf, x$geno, by.x="sample", by.y="geno_match")
+			x$info <- merge(inf, x$geno, by.x="sample", by.y="genotype")
 			if (length(unique(x$info$sample)) != nrow(x$info)) {
 				message("info-file sample numbers were not unique")
 			}		
 		}
-		x$info$sample <- x$info$genotype
-		x$info$genotype <- NULL
-		x$geno$geno_match <- NULL
+	#	stopifnot(nrow(x$geno) == nrow(x$info))
+	#	x$info$sample <- x$info$genotype
+	#	x$geno$geno_match <- NULL
+	#	x$info$genotype <- NULL
 		
 #		ibs <- merge(x$marker[, 1:3], x$snp, all=TRUE)
-		dartnms <- gsub("_D.$", "", colnames(x$snp)[-1])
+#		dartnms <- gsub("_D.$", "", colnames(x$snp)[-1])
+
+		dartnms <- colnames(x$snp)[-1]
 		refnms <- as.character(inf[inf$crop == crop, "sample"])
 		i <- match(dartnms, refnms)
 

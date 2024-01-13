@@ -57,7 +57,7 @@ fix_filename <- function(filename) {
 }
 
 
-fix_duplicate_names <- function(x, suf="_D", verbose=FALSE) {
+..fix_duplicate_names <- function(x, suf="_D", verbose=FALSE) {
 	cn <- colnames(x)
 	tab <- table(cn)
 	dups <- tab[tab > 1]
@@ -88,7 +88,7 @@ remove_unknown_samples <- function(x, sample.id, verbose=FALSE) {
 }
 
 
-prepare_data <- function(x, genotypes, markers=NULL, filename, missing_rate=NULL, dupsuf="_D", verbose=FALSE) {
+prepare_data <- function(x, genotypes, markers=NULL, filename, missing_rate=NULL, verbose=FALSE) {
 
 	filename <- matchpoint:::fix_filename(filename)
 	if (x$type != "1_row") {
@@ -99,14 +99,14 @@ prepare_data <- function(x, genotypes, markers=NULL, filename, missing_rate=NULL
 	}
 	
 	snp <- matchpoint:::remove_unknown_samples(x$snp, genotypes$sample, verbose=verbose)
-	snp <- matchpoint:::fix_duplicate_names(snp, suf=dupsuf, verbose=verbose)
+	#snp <- matchpoint:::fix_duplicate_names(snp, suf=dupsuf, verbose=verbose)
 
 	if (!(is.null(missing_rate) || is.na(missing_rate))) {
 		snp <- remove_sparse_records(snp, missing_rate, missing_rate, rows=nr, verbose)
 	}
 	
 	cns <- colnames(snp)[-1]
-	i <- match(gsub(paste0(dupsuf, ".$"), "", cns), genotypes$sample)
+	i <- match(cns, genotypes$sample)
 	ref.id <- cns[genotypes$reference[i]]
 	field.id <- cns[!genotypes$reference[i]]
 	gds <- NULL
