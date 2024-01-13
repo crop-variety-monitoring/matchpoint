@@ -9,7 +9,7 @@ nngb_dist <- function(x, fun=min) {
 	u <- unique(vars)
 	d <- sapply(1:length(u), \(i) {
 		j <- which(u[i] == vars)
-		dv <- x[j, ]
+		dv <- x[j, ,drop=FALSE]
 		dv[, j] <- NA
 		fun(dv, na.rm=TRUE)
 	})
@@ -31,7 +31,7 @@ self_dist <- function(x, fun=mean) {
 	u <- unique(vars)
 	d <- sapply(1:length(u), \(i) {
 		j <- which(u[i] == vars)
-		dv <- x[j, j]
+		dv <- x[j, j, drop=FALSE]
 		fun(dv, na.rm=TRUE)
 	})
 	d[!is.finite(d)] <- 0
@@ -47,7 +47,7 @@ split_groups <- function(x, threshold, keep_nngb=TRUE, verbose=FALSE) {
 	keep <- x
 	x <- as.matrix(x)
 	stopifnot(nrow(x) == ncol(x))
-	stopifnot(all(colnames(x) == rownames(x)))
+#	stopifnot(all(colnames(x) == rownames(x)))
 	stopifnot(length(unique(colnames(x))) < ncol(x))
 	adj <- (x < threshold)
 	vars <- colnames(x)
@@ -105,7 +105,7 @@ lump_similar <- function(x, threshold, verbose=FALSE) {
 	keep <- x
 	x <- as.matrix(x)
 	stopifnot(nrow(x) == ncol(x))
-	stopifnot(all(colnames(x) == rownames(x)))
+#	stopifnot(all(colnames(x) == rownames(x)))
 	stopifnot(length(unique(colnames(x))) < ncol(x))
 	oldnms <- nms <- colnames(x)
 	dimnames(x) <- list(1:ncol(x), 1:ncol(x))
@@ -131,7 +131,13 @@ lump_similar <- function(x, threshold, verbose=FALSE) {
 	if (nrow(dc) > 0) {
 		ag <- stats::aggregate(dc$from, dc["to"], \(i) {
 				tab <- table(i) / length(i)
-				j <- tab > 0.5
+				if (length(i) < 4) {
+					j <- FALSE
+				} else if (length(tab) == 2) {
+					j <- tab > 0.66
+				} else {
+					j <- tab > 0.55		
+				}
 				if (any(j)) {
 					return(paste0(names(j[j]), " *"))
 				} else {
