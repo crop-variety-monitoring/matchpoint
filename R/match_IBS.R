@@ -145,10 +145,10 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 	output[["best_match"]] <- best
 
 	ib <- d[d$IBS > IBS_cutoff[1], ] 
-	ib$id_rank <- with(ib, ave(IBS, field_id, FUN=\(x) rank(1-x, ties.method="min")))
+	ib$id_rank <- with(ib, stats::ave(IBS, field_id, FUN=\(x) rank(1-x, ties.method="min")))
 	
 	a <- stats::aggregate(ib[, "IBS", drop=FALSE], ib[, c("field_id", "variety")], max, na.rm=TRUE)
-	a$var_rank <- with(a, ave(IBS, field_id, FUN=\(x) rank(1-x, ties.method="min")))
+	a$var_rank <- with(a, stats::ave(IBS, field_id, FUN=\(x) rank(1-x, ties.method="min")))
 	a$IBS <- NULL
 	ib <- merge(ib, a, by=c("field_id",  "variety"))
 	ib <- ib[order(ib$field_id, ib$id_rank), ]

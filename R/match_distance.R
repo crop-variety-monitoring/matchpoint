@@ -51,9 +51,9 @@ get_output <- function(x, genotypes, input, name, meta=NULL, comp_all=TRUE) {
 	best$dist <- round(best$dist, 6)
 
 
-	d$id_rank <- ave(d[[name]], d$field_id, FUN=\(x) rank(1-x, ties.method="min"))
+	d$id_rank <- stats::ave(d[[name]], d$field_id, FUN=\(x) rank(1-x, ties.method="min"))
 	a <- stats::aggregate(d[, "dist", drop=FALSE], d[, c("field_id", "variety")], max, na.rm=TRUE)
-	a$var_rank <- ave(a[[name]], a$field_id, FUN=\(x) rank(1-x, ties.method="min"))
+	a$var_rank <- stats::ave(a[[name]], a$field_id, FUN=\(x) rank(1-x, ties.method="min"))
 	a[[name]] <- NULL
 	d <- merge(d, a, by=c("field_id",  "variety"))
 	d <- d[order(d$field_id, d$id_rank), ]

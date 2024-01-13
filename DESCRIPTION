@@ -6,7 +6,7 @@ Version: 0.1-3
 Date: 2024-01-11
 biocViews:
 Depends: R (>= 3.5.0)
-Suggests: SNPRelate, readxl, writexl, igraph, data.table
+Suggests: SNPRelate, readxl, writexl, igraph, data.table, dendextend
 Author: Jinliang Yang, J. Luis Mijangos, Robert J. Hijmans
 Maintainer: <r.hijmans@gmail.com>
 License: GPL (>=3)

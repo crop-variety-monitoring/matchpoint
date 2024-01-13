@@ -17,6 +17,6 @@ purity <- function(xc, mr=0.2, minhet=0.2) {
 	
 	s[s < minhet] <- NA
 	s[, colSums(is.na(s)) < (mr * nrow(s))] <- NA
-	apply(s, 2, median, na.rm=TRUE)
+	apply(s, 2, stats::median, na.rm=TRUE)
 }
 

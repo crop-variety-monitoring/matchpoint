@@ -11,7 +11,7 @@ Use a distance metric with SNP data to match field samples to references. The Ha
 }
 
 \usage{
-match_distance(x, genotypes, compare="ref2fld", missing_rate=0.25, filename="", verbose=TRUE)
+match_distance(x, genotypes, missing_rate=0.25, comp_all=FALSE, filename="", verbose=TRUE)
 }
  
  
@@ -20,9 +20,9 @@ match_distance(x, genotypes, compare="ref2fld", missing_rate=0.25, filename="", 
 
 \item{genotypes}{\code{data.frame} with data linking the (dart) IDs (the column names in \code{x$snp}) to variety or field IDS. Column names must include \code{"sample", "variety", "reference"}. "sample" should match the ID for a genotype (column name) in \code{x$snp}. \code{"variety"} should have a name for the reference samples. \code{reference} has logical values that should be \code{TRUE} for the reference samples and \code{FALSE} for the field samples. Columns in \code{x$snp} with a name that is not matched by a value in \code{"sample"} are removed from the analysis}
 
-\item{compare}{character. One of "ref2fld", "ref2ref", fld2fld", "all"}
-
 \item{missing_rate}{numeric between 0 and 1. samples with a higher missing rate are removed}
+
+\item{comp_all}{logical}
 
 \item{filename}{character. Optional Excel output file name}
 

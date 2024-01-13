@@ -17,7 +17,7 @@ remove_sparse_records <- function(x, sample_mr=0.2, snp_mr=0.2, rows, verbose=TR
 		}
 	}
 
-	i <- apply(x[,-1], 1, \(i) length(na.omit(unique(i))))
+	i <- apply(x[,-1], 1, \(i) length(stats::na.omit(unique(i))))
 	i <- which(i < 2) # could be 0 or 1
 	if (length(i) > 0) {
 		if (rows != 1) {
