@@ -153,7 +153,12 @@ lump_similar <- function(x, threshold, verbose=FALSE) {
 	if (verbose) {
 		print(unique(d[, c("from", "to")]))
 	}
-	dimnames(keep) <- list(d$to, d$to)
+	if (inherits(keep, "matrix")) {
+		dimnames(keep) <- list(d$to, d$to)
+	} else {
+		attr(keep, "Labels") <- d$to 
+	}
+
 	keep
 }
 	

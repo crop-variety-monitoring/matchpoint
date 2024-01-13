@@ -31,8 +31,7 @@ x <- iris[, -5]
 dst <- dist(x)
 attr(dst, "Labels") <- as.character(iris[,5])
 
-sdst <- lump_similar(dst, 0.65, keep_nngb=FALSE, verbose=TRUE)
+sdst <- lump_similar(dst, 0.65, verbose=TRUE)
 unique(labels(sdst))
-
 }
 

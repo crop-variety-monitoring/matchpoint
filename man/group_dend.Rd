@@ -11,12 +11,11 @@ Make a dendrogram from a distance matrix with prior (known) group labels.
 }
 
 \usage{
-group_dend(x, labels, add=NULL, col=viridis::turbo, cex=0.5, ...)
+group_dend(x, add=NULL, col=viridis::turbo, cex=0.5, ...)
 }
  
 \arguments{
 \item{x}{square matrix or \code{dist}}
-\item{labels}{group membership labels for each element in \code{x}}
 \item{add}{additons to the individual labels that are not used in setting the color}
 \item{col}{colors or color generating function for the labels}
 \item{cex}{numeric. Size of the labels}
