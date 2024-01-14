@@ -1,7 +1,31 @@
 
+ibs_distance <- function(ref, fld=NULL) {
+	if (is.null(fld)) {
+		ref <- as.matrix(ref)
+		ref[] <- match(ref, c(0,2,1)) - 1
+
+		out <- matrix(NA, ncol=ncol(ref), nrow=ncol(ref))
+		colnames(out) <- rownames(out) <- colnames(ref)
+		nc <- ncol(ref)
+		for (i in 1:nc) {
+			j <- i:nc
+			out[i, j] <- out[j, i] <- colSums(2 - abs(ref[,j,drop=FALSE] - ref[,i]), na.rm=TRUE)
+		}
+	} else {
+		ref <- as.matrix(ref)
+		fld <- as.matrix(fld)
+		ref[] <- match(ref, c(0,2,1)) - 1
+		fld[] <- match(fld, c(0,2,1)) - 1
+		out <- t(sapply(1:ncol(fld), \(i) colSums(2 - abs(ref[,j,drop=FALSE] - ref[,i]), na.rm=TRUE)))
+		rownames(out) <- colnames(fld)
+	}
+	1 - (out / (2 * nrow(ref)))
+}	
+
 
 hamming_distance <- function(ref, fld=NULL) {
 	if (is.null(fld)) {
+		ref <- as.matrix(ref)
 		out <- matrix(NA, ncol=ncol(ref), nrow=ncol(ref))
 		colnames(out) <- rownames(out) <- colnames(ref)
 		nc <- ncol(ref)
@@ -10,10 +34,13 @@ hamming_distance <- function(ref, fld=NULL) {
 			out[i, j] <- out[j, i] <- colSums(ref[,j,drop=FALSE] != ref[,i], na.rm=TRUE)
 		}
 	} else {
-		out <- t(sapply(1:ncol(fld), \(i) colSums(ref != fld[,i], na.rm=TRUE)) / nrow(ref))
+		ref <- as.matrix(ref)
+		fld <- as.matrix(fld)
+		out <- t(sapply(1:ncol(fld), \(i) colSums(ref != fld[,i], na.rm=TRUE)))
 		rownames(out) <- colnames(fld)
 	}
-	out
+	out 
+	# / nrow(ref)
 }	
 
 
@@ -72,7 +99,7 @@ get_output <- function(x, genotypes, input, name, meta=NULL, comp_all=TRUE) {
 
 
 
-match_distance <- function(x, genotypes, missing_rate=0.25, comp_all=FALSE, filename="", verbose=TRUE) {
+match_distance <- function(x, genotypes, missing_rate=0.2, comp_all=FALSE, filename="", verbose=TRUE) {
 
 	input <- matchpoint:::prepare_data(x, genotypes, missing_rate=missing_rate, filename=filename, verbose=verbose)
 
@@ -93,8 +120,15 @@ match_distance <- function(x, genotypes, missing_rate=0.25, comp_all=FALSE, file
 			dst <- matchpoint:::hamming_distance(ref, fld)
 		}
 		if (filename != "") filename <- paste0(filename, "_HAM.xlsx")
-	} else { # make 2_row?
-		stop("need a counts or 2_row object")
+	} else if (x$type == "1_row") {
+		if (comp_all) {
+			dst <- matchpoint:::ibs_distance(input$snp[, -1])
+		} else {
+			fld <- input$snp[, colnames(input$snp) %in% input$field.id]
+			ref <- input$snp[, colnames(input$snp) %in% input$ref.id]
+			dst <- matchpoint:::ibs_distance(ref, fld)
+		}
+		if (filename != "") filename <- paste0(filename, "_IBS.xlsx")
 	}
 
 	meta <- data.frame(metric="distance", 

@@ -1,17 +1,17 @@
-\name{self_dist}
+\name{other_dist}
 
-\alias{self_dist}
+\alias{other_dist}
 
 \title{
-Within group distance
+Distance to other groups
 }
 
 \description{
-Compute the mean (or other statistic) distance between members of a group in a distance matrix. }
+Compute the mean (or other statistic) distance of the members of a group to the mean in a distance matrix. }
 
 
 \usage{
-self_dist(x, fun=mean)
+other_dist(x, fun=mean)
 }
  
 \arguments{
@@ -23,15 +23,13 @@ self_dist(x, fun=mean)
 data.frame with the group name and score(s)
 }
 
-\seealso{\code{\link{other_dist}}, \code{\link{nngb_dist}}}
+\seealso{\code{\link{self_dist}}, \code{\link{nngb_dist}}}
 
 \examples{
 x <- iris[, -5]
 d <- dist(x)
 attr(d, "Labels") <- as.character(iris[,5])
 
-self_dist(d, mean)
-self_dist(d, min)
-self_dist(d, quantile)
+other_dist(d, mean)
 }
 

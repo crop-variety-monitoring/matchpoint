@@ -74,9 +74,9 @@ lump_similar <- function(x, threshold, verbose=FALSE) {
 	gg <- igraph::decompose(g)
 	for (i in 1:n) {
 		j <- igraph::clusters(gg[[i]])$membership |> names() |> as.integer()
-		inms <- nms[j]
-		if (length(unique(inms)) > 1) {
-			nms[j] <- paste0(sort(unique(inms)), collapse="-#-")
+		inms <- unique(nms[j])
+		if (length(inms) > 1) {
+			nms[j] <- paste0(sort(inms), collapse="_#_")
 		}
 	}
 
@@ -94,7 +94,7 @@ lump_similar <- function(x, threshold, verbose=FALSE) {
 					j <- tab > 0.55		
 				}
 				if (any(j)) {
-					return(paste0(names(j[j]), " *"))
+					names(j[j])
 				} else {
 					NA
 				}})
@@ -105,12 +105,12 @@ lump_similar <- function(x, threshold, verbose=FALSE) {
 			d$to[!is.na(d$x)] <- d$x[!is.na(d$x)]
 			d <- d[,nms]
 		}
-		d$to <- gsub("-#-", " # ", d$to)
-#		i <- gsub(" \\*", "", d$to) == d$from
-#		d$to[i] <- d$from[i]
-		d$to <- gsub("\\* \\*$", "*", d$to)
-		d <- d[order(d$id), ]
+		d$to <- sapply(strsplit(d$to, "_#_"), \(n) {
+					paste(sort(unique(n)), collapse="_#_")
+				})
+		d <- d[order(d$id), ]		
 	}
+	
 	if (verbose) {
 		print(unique(d[, c("from", "to")]))
 	}
@@ -122,6 +122,6 @@ lump_similar <- function(x, threshold, verbose=FALSE) {
 
 	keep
 }
-	
+
 
 

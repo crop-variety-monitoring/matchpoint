@@ -1,6 +1,92 @@
 
+collapse_names <- function(x, sep="_#_") {
+	
+	lcPrefix <- function (x) {
+		x <- as.character(x)
+		nc <- nchar(x, type = "char")
+		for (i in 1:min(nc)) {
+			ss <- substr(x, 1, i)
+			if (any(ss != ss[1])) {
+				return(substr(x[1], 1, i - 1))
+			}
+		}
+		substr(x[1], 1, i)
+	}
+	
+	nms <- strsplit(x, sep)
+	sapply(nms, \(n) { 
+		if (length(n) > 1) {
+			u <- strsplit(n, sub("\\D*(\\d+).*", "\\1", n))
+			u <- sapply(u, \(i) i[1]) |> unique()
+			u <- u[u!=""]
+			if (length(u) > 0) {
+				out <- ""[0]
+				for (i in 1:length(u)) {
+					j <- grep(u[i], n, fixed=TRUE)
+					if (length(j) == 1) {
+						out <- c(out, n[j])
+					} else {
+						out <- c(out, paste(c(n[j][1], gsub(u[i], "", n[j][-1])), collapse="//"))
+					}
+				}
+				paste(out, collapse=sep)
+			} else {
+				paste(n, collapse=sep)
+			}
+		} else {
+			paste(n, collapse=sep)
+		}
+	})		
+}
+	
 
-order_names <- function() {
+split_lump <- function(mdst, maxcut=0.3) {
+
+	oldnms <- colnames(mdst)
+	
+	v <- matchpoint::self_dist(mdst)
+	qth <- quantile(v$value)
+	outh <- min(.4, qth[4] + 1.5 * (qth[4] - qth[2]))
+	splitln <- Inf
+	if (outh < qth[5]) {
+	  splitln <- outh
+	  mdst <- matchpoint::split_groups(mdst, outh, TRUE)
+	  v <- matchpoint::self_dist(mdst)
+	  qth <- quantile(v$value)
+	  outh <- min(0.35, qth[4] + 2 * (qth[4] - qth[2]))
+	  if ((outh < qth[5]) & (outh < splitln)) {
+		splitln <- outh
+		mdst <- matchpoint::split_groups(mdst, outh, TRUE)
+		v <- matchpoint::self_dist(mdst)
+		qth <- quantile(v$value)
+	  }
+	}
+
+	mdst <- matchpoint::lump_similar(mdst, max(.01, qth[2])) 
+
+	v <- matchpoint::self_dist(mdst)
+	cut <- min(maxcut, max(0.02, quantile(v$value)[3]))
+	mdst <- matchpoint::lump_similar(mdst, cut) 
+
+	v <- matchpoint::self_dist(mdst)
+	cut <- min(maxcut, max(0.03, quantile(v$value)[4]))
+	mdst <- matchpoint::lump_similar(mdst, cut) 
+	
+	newnms <- colnames(mdst)
+
+	i <- !grepl("_#_", newnms)
+	j <- (newnms[i] != oldnms[i]) & (!grepl("__.$", newnms[i]))
+	newnms[i][j] <- paste0(newnms[i][j], "*")
+
+	newnms <- collapse_names(newnms)
+	newnms <- gsub("_#_", " # ", newnms)
+
+	list(old=oldnms, new=newnms, split=splitln, lump=cut)
+}
+
+
+
+order_names <- function() {	
 
 	d <- data.frame(
 		name = c('DCob22-7521_moreOrders', 'DEra22-7523_1_moreOrders', 'DCas23-7954', 'DCpea23-7956_moreOrders', 'DMz23-7957_7228', 'DRi23-7955_moreOrders', 'DCas23-7816', 'DCob23-7823', 'DMz23-7824', 'DRi23-7825'),

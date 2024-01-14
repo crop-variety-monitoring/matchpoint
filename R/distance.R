@@ -1,5 +1,35 @@
 
 
+min_dist <- function(x) {
+	x <- as.matrix(x)
+	stopifnot(all(nrow(x) == ncol(x)))
+	stopifnot(length(unique(colnames(x))) < ncol(x))
+	diag(x) <- NA
+	i <- apply(x, 1, which.min)
+	data.frame(group=colnames(x)[i], value=x[cbind(1:nrow(x), i)])
+}
+
+
+min_self_dist <- function(x) {
+	x <- as.matrix(x)
+	stopifnot(nrow(x) == ncol(x))
+	stopifnot(length(unique(colnames(x))) < ncol(x))
+	diag(x) <- NA
+	vars <- colnames(x)
+	u <- unique(vars)
+	z <- rep(NA, ncol(x))
+	for (i in 1:length(u)) {
+		j <- which(u[i] == vars)
+		if (length(j) > 1) {
+			dv <- x[j, j, drop=FALSE]
+			z[j] <- j[apply(dv, 1, which.min)]
+		} 
+	}
+	v <- x[cbind(1:nrow(x), z)]
+	data.frame(group=vars, value=v)
+}
+
+
 nngb_dist <- function(x, fun=min) {
 	x <- as.matrix(x)
 	stopifnot(all(nrow(x) == ncol(x)))
@@ -63,9 +93,9 @@ other_dist <- function(x, fun=mean) {
 
 	d[!is.finite(d)] <- 0
 	if (NCOL(d) == 1) {
-		data.frame(group=u, value=d)
+		data.frame(group=vars, value=d)
 	} else { # e.g. fun=quantile
-		data.frame(group=u, t(d))		
+		data.frame(group=vars, t(d))		
 	}
 }
 
