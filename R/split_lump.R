@@ -5,6 +5,9 @@ split_groups <- function(x, threshold, keep_nngb=TRUE, verbose=FALSE) {
 	stopifnot(nrow(x) == ncol(x))
 #	stopifnot(all(colnames(x) == rownames(x)))
 	stopifnot(length(unique(colnames(x))) < ncol(x))
+	stopifnot(threshold > 0)
+	if (threshold >= max(x, na.rm=TRUE)) return(x)
+
 	adj <- (x < threshold)
 	vars <- colnames(x)
 	uvars <- unique(vars)
@@ -41,7 +44,7 @@ split_groups <- function(x, threshold, keep_nngb=TRUE, verbose=FALSE) {
 		}
 
 		if (length(i) > 0) {
-			vars[i] <- paste0(vars[i], "__", letters[m])
+			vars[i] <- paste0(vars[i], "_", letters[m])
 			if (verbose) print(table(vars[i]))
 			if (inherits(keep, "matrix")) {
 				dimnames(keep) <- list(vars, vars)

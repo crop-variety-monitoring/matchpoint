@@ -26,7 +26,7 @@ collapse_names <- function(x, sep="_#_") {
 					if (length(j) == 1) {
 						out <- c(out, n[j])
 					} else {
-						out <- c(out, paste(c(n[j][1], gsub(u[i], "", n[j][-1])), collapse="//"))
+						out <- c(out, paste(c(n[j][1], gsub(u[i], "", n[j][-1])), collapse="*"))
 					}
 				}
 				paste(out, collapse=sep)
@@ -40,7 +40,45 @@ collapse_names <- function(x, sep="_#_") {
 }
 	
 
-split_lump <- function(mdst, maxlump=0.05, minsplit=0.2) {
+split_lump <- function(mdst, lump=0.05, split=0.2) {
+
+	oldnms <- colnames(mdst)
+
+	mdst <- matchpoint::split_groups(mdst, split, TRUE)
+	mdst <- matchpoint::lump_similar(mdst, lump) 
+	newnms <- colnames(mdst)
+
+	i <- !grepl("_#_", newnms)
+	j <- (newnms[i] != oldnms[i]) & (!grepl("_.$", newnms[i]))
+	newnms[i][j] <- paste0(newnms[i][j], "*")
+
+	i <- grep("_#_", newnms)
+	newnms[i] <- gsub("_.$", "", newnms[i])
+	newnms[i] <- gsub("_._#_", "_#_", newnms[i])
+
+	simplify <- function(names, pattern) {
+		nms <- names[!grepl("_#_", names)] |> unique()
+		p <- unique(grep(pattern, nms, value=TRUE))
+		if (length(p) > 0) {
+			for (i in 1:length(p)) {
+				n <- grep(gsub(pattern, "", p[i]), nms, value=TRUE) |> unique() |> length() 
+				if (n == 1) {
+					names[names==p[i]] <- gsub(pattern, "", p[i])
+				}
+			}
+		}
+		names
+	}
+	newnms <- simplify(newnms, "_a$")
+	newnms <- simplify(newnms, "_b$")
+	
+	newnms <- collapse_names(newnms)
+	newnms <- gsub("_#_", " # ", newnms)
+
+	list(old=oldnms, new=newnms, split=split, lump=lump)
+}
+
+split_lump_old <- function(mdst, maxlump=0.05, minsplit=0.2) {
 
 	oldnms <- colnames(mdst)
 	v <- matchpoint::self_dist(mdst)
@@ -75,9 +113,29 @@ split_lump <- function(mdst, maxlump=0.05, minsplit=0.2) {
 	newnms <- colnames(mdst)
 
 	i <- !grepl("_#_", newnms)
-	j <- (newnms[i] != oldnms[i]) & (!grepl("__.$", newnms[i]))
+	j <- (newnms[i] != oldnms[i]) & (!grepl("_.$", newnms[i]))
 	newnms[i][j] <- paste0(newnms[i][j], "*")
 
+	i <- grep("_#_", newnms)
+	newnms[i] <- gsub("_.$", "", newnms[i])
+	newnms[i] <- gsub("_._#_", "_#_", newnms[i])
+
+	simplify <- function(names, pattern) {
+		nms <- names[!grepl("_#_", names)] |> unique()
+		p <- unique(grep(pattern, nms, value=TRUE))
+		if (length(p) > 0) {
+			for (i in 1:length(p)) {
+				n <- grep(gsub(pattern, "", p[i]), nms, value=TRUE) |> unique() |> length() 
+				if (n == 1) {
+					names[names==p[i]] <- gsub(pattern, "", p[i])
+				}
+			}
+		}
+		names
+	}
+	newnms <- simplify(newnms, "_a$")
+	newnms <- simplify(newnms, "_b$")
+	
 	newnms <- collapse_names(newnms)
 	newnms <- gsub("_#_", " # ", newnms)
 
@@ -157,6 +215,7 @@ fix_varnames <- function(vars) {
 
 	m <- matrix(byrow=TRUE, ncol=2, c(
 # TZA
+		"Kablent Progeny", "Kablanket Progeny",
 		"CML 442(M WE 4106)", "CML442(MWE4106)",
 		"CML442(MWE410)", "CML442(MWE4106)",
 		"BORA", "Bora",
@@ -172,6 +231,7 @@ fix_varnames <- function(vars) {
 		"Kibanda memo", "Kibanda meno",
 		"Kibanda Meno", "Kibanda meno",
 		"Nerika 4", "NERICA 4",
+		"(OBA-98)", "OBA-98", 
 		'SUPA', 'Supa',  
 		'TAI', 'Tai',
 		"Meru HB 623", "MERU HB 623",
@@ -236,6 +296,8 @@ fix_varnames <- function(vars) {
 		vars <- gsub("SAMPEA-", "SAMPEA ", vars)
 		"SAMMAZ-11"
 		vars <- gsub("ARICA-", "SAMPEA ", vars)
+		vars <- gsub(" \\(DROUGHTTEGO®WE5229\\)", "", vars)
+		vars <- gsub(" \\(DROUGHTTEGO®WE5220\\)", "", vars)
 	}	
 	
 	vars
