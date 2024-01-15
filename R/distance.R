@@ -79,8 +79,8 @@ other_dist <- function(x, fun=mean) {
 	stopifnot(length(unique(colnames(x))) < ncol(x))
 	diag(x) <- NA
 	vars <- colnames(x)
-	x <- aggregate(x, list(vars), mean, na.rm=TRUE)[,-1]
-	x <- aggregate(t(x), list(vars), mean, na.rm=TRUE)
+	x <- stats::aggregate(x, list(vars), mean, na.rm=TRUE)[,-1]
+	x <- stats::aggregate(t(x), list(vars), mean, na.rm=TRUE)
 	vars <- x[,1]
 	x <- as.matrix(x[,-1])
 	colnames(x) <- vars

@@ -82,7 +82,7 @@ split_lump_old <- function(mdst, maxlump=0.05, minsplit=0.2) {
 
 	oldnms <- colnames(mdst)
 	v <- matchpoint::self_dist(mdst)
-	qth <- quantile(v$value)
+	qth <- stats::quantile(v$value)
 	#outh <- max(minsplit, qth[4] + 1.5 * (qth[4] - qth[2]))
 	outh <- minsplit
 	splitln <- Inf
@@ -90,7 +90,7 @@ split_lump_old <- function(mdst, maxlump=0.05, minsplit=0.2) {
 		splitln <- outh
 		mdst <- matchpoint::split_groups(mdst, outh, TRUE)
 		v <- matchpoint::self_dist(mdst)
-		qth <- quantile(v$value)
+		qth <- stats::quantile(v$value)
 #		outh <- max(minsplit, qth[4] + 1.5 * (qth[4] - qth[2]))
 #		if ((outh < qth[5]) && (outh < splitln) && (outh > minsplit)) {
 #			splitln <- outh
@@ -103,11 +103,11 @@ split_lump_old <- function(mdst, maxlump=0.05, minsplit=0.2) {
 	mdst <- matchpoint::lump_similar(mdst, max(.01, qth[2])) 
 
 	v <- matchpoint::self_dist(mdst)
-	cut <- min(maxlump, max(0.01, quantile(v$value)[3]))
+	cut <- min(maxlump, max(0.01, stats::quantile(v$value)[3]))
 	mdst <- matchpoint::lump_similar(mdst, cut) 
 
 	v <- matchpoint::self_dist(mdst)
-	cut <- min(maxlump, max(0.01, quantile(v$value)[4]))
+	cut <- min(maxlump, max(0.01, stats::quantile(v$value)[4]))
 	mdst <- matchpoint::lump_similar(mdst, cut) 
 	
 	newnms <- colnames(mdst)
