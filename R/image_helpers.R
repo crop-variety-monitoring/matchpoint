@@ -40,36 +40,36 @@ collapse_names <- function(x, sep="_#_") {
 }
 	
 
-split_lump <- function(mdst, maxcut=0.3) {
+split_lump <- function(mdst, maxlump=0.05, minsplit=0.2) {
 
 	oldnms <- colnames(mdst)
-	
 	v <- matchpoint::self_dist(mdst)
 	qth <- quantile(v$value)
-	outh <- min(.4, qth[4] + 1.5 * (qth[4] - qth[2]))
+	#outh <- max(minsplit, qth[4] + 1.5 * (qth[4] - qth[2]))
+	outh <- minsplit
 	splitln <- Inf
 	if (outh < qth[5]) {
-	  splitln <- outh
-	  mdst <- matchpoint::split_groups(mdst, outh, TRUE)
-	  v <- matchpoint::self_dist(mdst)
-	  qth <- quantile(v$value)
-	  outh <- min(0.35, qth[4] + 2 * (qth[4] - qth[2]))
-	  if ((outh < qth[5]) & (outh < splitln)) {
 		splitln <- outh
 		mdst <- matchpoint::split_groups(mdst, outh, TRUE)
 		v <- matchpoint::self_dist(mdst)
 		qth <- quantile(v$value)
-	  }
+#		outh <- max(minsplit, qth[4] + 1.5 * (qth[4] - qth[2]))
+#		if ((outh < qth[5]) && (outh < splitln) && (outh > minsplit)) {
+#			splitln <- outh
+#			mdst <- matchpoint::split_groups(mdst, outh, TRUE)
+#			v <- matchpoint::self_dist(mdst)
+#			qth <- quantile(v$value)
+#		}
 	}
 
 	mdst <- matchpoint::lump_similar(mdst, max(.01, qth[2])) 
 
 	v <- matchpoint::self_dist(mdst)
-	cut <- min(maxcut, max(0.02, quantile(v$value)[3]))
+	cut <- min(maxlump, max(0.01, quantile(v$value)[3]))
 	mdst <- matchpoint::lump_similar(mdst, cut) 
 
 	v <- matchpoint::self_dist(mdst)
-	cut <- min(maxcut, max(0.03, quantile(v$value)[4]))
+	cut <- min(maxlump, max(0.01, quantile(v$value)[4]))
 	mdst <- matchpoint::lump_similar(mdst, cut) 
 	
 	newnms <- colnames(mdst)
@@ -157,6 +157,8 @@ fix_varnames <- function(vars) {
 
 	m <- matrix(byrow=TRUE, ncol=2, c(
 # TZA
+		"CML 442(M WE 4106)", "CML442(MWE4106)",
+		"CML442(MWE410)", "CML442(MWE4106)",
 		"BORA", "Bora",
 		"PASI", "Pasi",
 		"PESA", "Pesa",

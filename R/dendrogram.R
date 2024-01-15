@@ -16,7 +16,7 @@ group_dend <- function(x, add=NULL, col=viridis::turbo, cex=0.5, ...) {
 	}
 	cols <- cols[id]
 	if (!is.null(add)) {
-		lbs <- paste0(lbs, add)	
+		lbs <- paste0(lbs, add[j])	
 	}
 	hc <- stats::as.dendrogram(hc)
 	hc <- dendextend::set(hc, "labels", lbs)
