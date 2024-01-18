@@ -1,4 +1,33 @@
 
+punity <- function(x, thresholds) {
+	x <- as.matrix(x)
+	stopifnot(nrow(x) == ncol(x))
+	stopifnot(length(unique(colnames(x))) < ncol(x))
+	stopifnot(all(thresholds >= 0))
+	pure <- rep(NA, length(thresholds))
+	unis <- rep(NA, length(thresholds))
+	for (i in 1:length(thresholds)) {
+		a <- (x < thresholds[i])
+		g <- igraph::graph_from_adjacency_matrix(a)
+		n <- igraph::count_components(g)
+		if (n == 1) {
+			pure[i] <- 0
+			unis[i] <- 1
+			next
+		}
+		gg <- igraph::decompose(g)
+		z <- lapply(1:length(gg), \(i) 
+			cbind(id=i, names=igraph::clusters(gg[[i]])$membership |> names() |> unique()))
+		z <- do.call(rbind, z)
+		pure[i] <- length(unique(z[, "id"])) / nrow(z)
+		tab <- table(z[, "names"])
+		unis[i] <- length(tab[tab==1]) / length(tab)
+	}
+	cbind(threshold=thresholds, purity=pure, unison=unis)
+}
+
+
+
 split_groups <- function(x, threshold, keep_nngb=TRUE, verbose=FALSE) {
 	keep <- x
 	x <- as.matrix(x)

@@ -177,7 +177,7 @@ DAP_info <- function(filename) {
 	info <- utils::read.csv(filename)
 	out <- info["TargetID"]
 	out$Genotype <- make_unique_ids(info$sample)
-	out$RefType <- info$variety
+	out$RefType <- gsub("\\*$| \\*$", "", info$variety)
 	out$SampleType <- ifelse(info$reference, NA, "field")
 	out
 }	
@@ -296,8 +296,7 @@ fix_varnames <- function(vars) {
 		vars <- gsub("SAMPEA-", "SAMPEA ", vars)
 		"SAMMAZ-11"
 		vars <- gsub("ARICA-", "SAMPEA ", vars)
-		vars <- gsub(" \\(DROUGHTTEGO®WE5229\\)", "", vars)
-		vars <- gsub(" \\(DROUGHTTEGO®WE5220\\)", "", vars)
+		vars <- gsub(" \\(DROUGHTTEGO®WE52..\\)", "", vars)
 	}	
 	
 	vars
@@ -558,6 +557,9 @@ prepare_dart <- function(path, outpath) {
 #		utils::write.csv(ibs_fld, file.path(outpath, paste0(oname, "_IBS-fld.csv")), na="-", row.names=FALSE)
 
 		bname <- file.path(outpath, x$order)
+
+		# cowpea mixtures
+		x$info <- x$info[x$info$variety != "MIXTURES", ]
 
 		utils::write.csv(x$info, paste0(bname, "_variety-info.csv"), row.names=FALSE)
 #		utils::write.csv(x$marker, paste0(bname, "_marker-info.csv"), row.names=FALSE)
