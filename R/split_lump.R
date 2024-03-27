@@ -23,7 +23,7 @@ punity <- function(x, thresholds) {
 		tab <- table(z[, "names"])
 		unis[i] <- length(tab[tab==1]) / length(tab)
 	}
-	cbind(threshold=thresholds, purity=pure, unison=unis)
+	cbind(threshold=thresholds, purity=pure, unison=unis, mean=(pure+unis)/2)
 }
 
 

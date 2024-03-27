@@ -7,7 +7,9 @@ cut.dm <- function(x, d) {
 	a <- (x <= d)
 	g <- igraph::graph_from_adjacency_matrix(a)
 	n <- igraph::count_components(g)
-	if (n == 1) return(x)
+	if (n == 1) {
+		return(list(dm=x, key=data.frame(groups=1:length(cns), cases=1, labels=cns)))
+	}
 	gg <- igraph::decompose(g)
 	z <- lapply(1:length(gg), \(i) 
 		cbind(group=i, cases=igraph::clusters(gg[[i]])$membership |> names() |> as.integer()))
@@ -18,8 +20,20 @@ cut.dm <- function(x, d) {
 	nms <- a[,1]
 	a <- as.matrix(a[,-1])
 	rownames(a) <- colnames(a) <- nms
+	rownames(z) <- NULL
 	z$labels <- cns
 	list(dm=a, key=z)
+}
+
+
+ngroups.dm <- function(x, d) {
+	keep <- x
+	x <- as.matrix(x)
+	cns <- colnames(x)
+	colnames(x) <- 1:ncol(x)
+	a <- (x <= d)
+	g <- igraph::graph_from_adjacency_matrix(a)
+	igraph::count_components(g)
 }
 
 
