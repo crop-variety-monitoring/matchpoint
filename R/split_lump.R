@@ -93,7 +93,9 @@ lump_similar <- function(x, threshold, verbose=FALSE) {
 	x <- as.matrix(x)
 	stopifnot(nrow(x) == ncol(x))
 #	stopifnot(all(colnames(x) == rownames(x)))
-	stopifnot(length(unique(colnames(x))) < ncol(x))
+	if (length(unique(colnames(x))) == ncol(x)) {
+		stop("no duplicates to work with")
+	}
 	oldnms <- nms <- colnames(x)
 	dimnames(x) <- list(1:ncol(x), 1:ncol(x))
 
