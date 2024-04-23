@@ -17,7 +17,7 @@ punity <- function(x, thresholds) {
 		}
 		gg <- igraph::decompose(g)
 		z <- lapply(1:length(gg), \(i) 
-			cbind(id=i, names=igraph::clusters(gg[[i]])$membership |> names() |> unique()))
+			cbind(id=i, names=igraph::components(gg[[i]])$membership |> names() |> unique()))
 		z <- do.call(rbind, z)
 		pure[i] <- length(unique(z[, "id"])) / nrow(z)
 		tab <- table(z[, "names"])
@@ -50,7 +50,7 @@ split_groups <- function(x, threshold, keep_nngb=TRUE, verbose=FALSE) {
 		g <- igraph::graph_from_adjacency_matrix(a)
 		n <- igraph::count_components(g)
 		if (n == 1) next 
-		m <- igraph::clusters(g)$membership
+		m <- igraph::components(g)$membership
 
 		if (keep_nngb) {
 			for (j in 1:n) {
@@ -107,7 +107,7 @@ lump_similar <- function(x, threshold, verbose=FALSE) {
 	}
 	gg <- igraph::decompose(g)
 	for (i in 1:n) {
-		j <- igraph::clusters(gg[[i]])$membership |> names() |> as.integer()
+		j <- igraph::components(gg[[i]])$membership |> names() |> as.integer()
 		inms <- unique(nms[j])
 		if (length(inms) > 1) {
 			nms[j] <- paste0(sort(inms), collapse="_#_")
