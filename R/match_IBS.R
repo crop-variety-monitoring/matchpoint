@@ -3,7 +3,7 @@
 match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0.2, 
 				Ref_Missing_Rate=0.2, Sample_Missing_Rate=0.2, 
 				Ref_Heterozygosity_Rate=1, Sample_Heterozygosity_Rate=1,
-				IBS_cutoff=0.5, Inb_method="mom.visscher", 
+				IBS_cutoff=0.5, Inb_method="mom.visscher", assign_threshold=.9,
 				threads=4, verbose=FALSE, filename="") {
 
 	input <- matchpoint:::prepare_data(x, genotypes, markers, filename=filename, verbose=verbose)
@@ -145,6 +145,8 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 	names(best)[7] <- "sample_SNP_missing_rate"
 	best$IBS <- round(best$IBS, 6)
 	output[["best_match"]] <- best
+	output[["all_match"]] <- matchpoint::var_groups(out_all, assign_threshold, input$ref.id)
+
 
 	ib <- d[d$IBS > IBS_cutoff[1], ] 
 	ib$id_rank <- with(ib, stats::ave(IBS, field_id, FUN=\(x) rank(1-x, ties.method="min")))

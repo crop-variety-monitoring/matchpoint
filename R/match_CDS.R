@@ -14,7 +14,7 @@ count_fractions <- function(counts, mincounts=NULL) {
 
 
 match_CDS <- function(x, genotypes, markers, method = "cor", snp_missing_rate=0.2, CDS_cutoff=0.5,
-		mincounts=NULL, filename, verbose=FALSE) {
+		mincounts=NULL, assign_threshold=.9, filename, verbose=FALSE) {
 
 	input <- matchpoint:::prepare_data(x, genotypes, markers, filename=filename, verbose=verbose)
 
@@ -60,6 +60,8 @@ match_CDS <- function(x, genotypes, markers, method = "cor", snp_missing_rate=0.
 	best <- d[!duplicated(d$field_id),]
 	best$CDS <- round(best$CDS, 6)
 	output[["best_match"]] <- best
+	
+	output[["all_match"]] <- matchpoint::var_groups(out_all, assign_threshold, input$ref.id)
 
 	ib <- d[d$CDS > CDS_cutoff[1], ] 
 	ib$id_rank <- with(ib, stats::ave(CDS, field_id, FUN=\(x) rank(1-x, ties.method="min")))

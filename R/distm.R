@@ -54,7 +54,7 @@ ngroups.dm <- function(x, d) {
 #}
 
 var_groups <- function(x, d, ref.id) {
-	a <- (x <= d)
+	a <- (x >= d)
 	g <- igraph::graph_from_adjacency_matrix(a)
 	n <- igraph::count_components(g)
 	gg <- igraph::decompose(g)
