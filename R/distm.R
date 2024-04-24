@@ -66,17 +66,21 @@ var_groups <- function(x, d, ref.id) {
 	gs <- cbind(gs[1], gs[[2]])
 	colnames(gs)[2:3] <- c("size", "nrefs")
 	z <- merge(z, gs, by="group")
+
 	i <- z$size == z$nrefs
 
 	zi <- z[!i, ]
 	zr <- unique(zi[zi$ref, 1:2])
 	zr <- aggregate(zr["cases"], zr["group"], \(i) paste(i, collapse=";"))
+	names(zr)[2] <- "ref_sample"
+	
+	m <- merge(z[, c("group", "cases", "size")], zr, by="group", all.x=TRUE)
+	m <- m[order(is.na(m$ref_sample), -m$size, m$group), ]
+	m$group <- m$group |> factor(levels=unique(m$group)) |> as.integer()
 
-	m <- merge(z[, c("group", "size")], zr, by="group", all.x=TRUE)
-	m <- m[order(m$cases, -m$size, m$group), ]
-	j <- is.na(m$cases)
+	j <- is.na(m$ref_sample)
 	m$cases[j] <- paste0("nr_", m$group[j] |> factor(levels=unique(m$group[j])) |> as.integer())
-	colnames(m)[3] <- "references"
+	colnames(m)[2] <- "field_sample"
 	m
 }
 
