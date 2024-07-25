@@ -18,30 +18,24 @@ read_dart <- function(filename) {
 	} else 	if (ncol(hdr) == 8) {
 		colnames(hdr) <- c(cns, "TargetID")
 	}
-	
+	ids <- paste0("G", 1:nrow(hdr))
+	hdr <- data.frame(ID=ids, hdr)
 	d <- as.matrix(r[(srow+1):nrow(r), scol:ncol(r)])
 	v <- as.vector(d)
 	v[v == "-"] <- NA
 	d <- matrix(as.integer(v), nrow=nrow(d), ncol=ncol(d))	
 	d <- data.frame(r[(srow+1):nrow(r), 1:2], d, check.names=FALSE)
 
-	if (grepl("_Counts", filename) || isTRUE(any(d[,-c(1:2)] > 2))) { 
-		ids <- trimws(hdr[, ncol(hdr)-1])
+	if (grepl("_Counts", filename) || isTRUE(any(d[,-c(1:2)] > 2))) { 		
 		colnames(d) <- c(colnames(marker)[1:2], ids)
 		out <- list(snp=d, marker=marker, geno=hdr, type="counts", order=ordname)
 	} else {
 		i <- seq(1, nrow(d), 2)
 		if (grepl("_2row", filename) || (all(d[i,1] == d[i+1,1]))) {
-			if (ncol(hdr) == 8) {
-				ids <- trimws(hdr[,ncol(hdr)-1])		
-			} else {
-				ids <- trimws(hdr[,ncol(hdr)])
-			}
 			colnames(d) <- c(colnames(marker)[1:2], ids)
 			out <- list(snp=d, marker=marker, geno=hdr, type="2_row", order=ordname)
 		} else if (nrow(d) == length(unique(d[, 1]))) {
 			d <- d[,-2]
-			ids <- trimws(hdr[,ncol(hdr)])
 			colnames(d) <- c(colnames(marker)[1], ids)
 			out <- list(snp=d, marker=marker, geno=hdr, type="1_row", order=ordname)	
 		} else {
@@ -51,6 +45,20 @@ read_dart <- function(filename) {
 	}
 	class(out) <- "darter"
 	out
+}
+
+show.darter = \(object) print(object)
+
+print.darter = \(x, ...) {
+	cat("class       :" , class(x), "\n")
+	cat("order       :" , x$order, "\n")
+	cat("type        :" , x$type, "\n")
+	if (x$type == "1_row") {
+		cat("markers     :" , nrow(x$snp), "\n")
+	} else {
+		cat("markers     :" , nrow(x$snp) / 2, "\n")	
+	}
+	cat("genotypes   :" , nrow(x$geno), "\n")
 }
 
 
@@ -132,7 +140,7 @@ make_dart_2row <- function(x) {
 
 
 
-dart_make_unique <- function(x) {
+old_dart_make_unique <- function(x) {
 	n <- length(x$geno$genotype)
 	if (n != length(unique(x$geno$genotype))) {
 		x$geno$genotype <- make_unique_ids(x$geno$genotype)
@@ -168,3 +176,30 @@ write_dart <- function(x, filename) {
 	gs <- rbind(g, s)
 	utils::write.table(gs, filename, na="-", col.names=FALSE, row.names=FALSE, sep=",")
 }
+
+
+
+dart_combine <- function(x) {
+	stopifnot(is.list(x))
+	out <- x[[1]]
+	if (length(x) == 1) return(out)
+
+	nc <- if (out$type == "1_row") 1 else 1:2
+	byv <- c("MarkerName", "AlleleSequence")[nc]
+
+	out$geno$ID <- paste0("G", 1:nrow(out$geno))
+	names(out$snp)[-nc] <- out$geno$ID 
+	
+	for (i in 2:length(x)) {
+		y <- x[[i]]
+		s <- nrow(out$geno)
+		y$geno$ID <- paste0("G", (s+1):(s + nrow(y$geno)))
+		names(y$snp)[-nc] <- y$geno$ID 
+		
+		out$snp <- merge(out$snp, y$snp, by=byv, all=TRUE)
+		out$geno <- rbind(out$geno, y$geno)
+		out$order <- paste0(out$order, "_", y$order)
+	}
+	out
+}
+

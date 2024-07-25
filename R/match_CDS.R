@@ -14,11 +14,11 @@ count_fractions <- function(counts, mincounts=NULL) {
 
 
 match_CDS <- function(x, genotypes, markers, method = "cor", snp_missing_rate=0.2, CDS_cutoff=0.5,
-		mincounts=NULL, assign_threshold=.9, filename, verbose=FALSE) {
+		mincounts=NULL, assign_threshold=NULL, filename, verbose=FALSE) {
 
 	input <- matchpoint:::prepare_data(x, genotypes, markers, filename=filename, verbose=verbose)
 
-	fract <- count_fractions(input$snp, mincounts=mincounts)
+	fract <- matchpoint:::count_fractions(input$snp, mincounts=mincounts)
 	mr <- colSums(is.na(fract[,-1])) / nrow(fract)
 	fract <- fract[, c(TRUE, mr <= snp_missing_rate)]
 
@@ -31,10 +31,22 @@ match_CDS <- function(x, genotypes, markers, method = "cor", snp_missing_rate=0.
 	out_all <- 1 - dmat
 
 #placeholder
-	output <- list(metadata=data.frame(variable="nothing yet", value=NA))
+	output <- list(metadata=data.frame(metric=c("distance method", "snp_missing_rate"), value=c(method, snp_missing_rate)))
 
 	i <- which(colnames(out_all) %in% input$ref.id)
 	out_match <- out_all[-i, i]
+	ref_match <- out_all[i, i]
+	
+	if (is.null(assign_threshold)) {
+		refnms <- genotypes$variety[match(colnames(ref_match), genotypes$sample)]
+		dimnames(ref_match) <- list(refnms, refnms)
+		pun <- matchpoint:::punity(1-ref_match, seq(0, 0.5, .01))
+		# we want the last which.max
+		assign_threshold <- 1 - pun[nrow(pun) - which.max(rev(pun[,"mean"])) + 1, "threshold"] 
+		output[["metadata"]] <- rbind(output[["metadata"]], data.frame(metric="assign_threshold (computed)", value=assign_threshold)) 
+	} else {
+		output[["metadata"]] <- rbind(output[["metadata"]], data.frame(metric="assign_threshold (user input)", value=assign_threshold)) 	
+	}
 	
 	d <- data.frame(field_id=rownames(out_match), 
 					ref_id=rep(colnames(out_match), each=nrow(out_match)),
@@ -61,7 +73,13 @@ match_CDS <- function(x, genotypes, markers, method = "cor", snp_missing_rate=0.
 	best$CDS <- round(best$CDS, 6)
 	output[["best_match"]] <- best
 	
-	output[["all_match"]] <- matchpoint::var_groups(out_all, assign_threshold, input$ref.id)
+#	vg <- matchpoint:::var_groups(out_all, assign_threshold, input$ref.id, genotypes$variety[match(input$ref.id, genotypes$sample)])
+#	vg$variety <- sapply(strsplit(vg$ref_sample, ";"), 
+#				\(i) paste(unique(genotypes$variety[match(i, genotypes$sample)]), collapse="; ")
+#			)
+	vg <- matchpoint:::old_var_groups(out_all, assign_threshold, input$ref.id)
+
+	output[["all_match"]] <- vg
 
 	ib <- d[d$CDS > CDS_cutoff[1], ] 
 	ib$id_rank <- with(ib, stats::ave(CDS, field_id, FUN=\(x) rank(1-x, ties.method="min")))

@@ -3,7 +3,7 @@
 match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0.2, 
 				Ref_Missing_Rate=0.2, Sample_Missing_Rate=0.2, 
 				Ref_Heterozygosity_Rate=1, Sample_Heterozygosity_Rate=1,
-				IBS_cutoff=0.5, Inb_method="mom.visscher", assign_threshold=.9,
+				IBS_cutoff=0.5, Inb_method="mom.visscher", assign_threshold=NULL,
 				threads=4, verbose=FALSE, filename="") {
 
 	input <- matchpoint:::prepare_data(x, genotypes, markers, filename=filename, verbose=verbose)
@@ -117,7 +117,20 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 	out_all <- ibs[[3]]
 	colnames(out_all) <- rownames(out_all) <- ibs[[1]]
 	i <- which(colnames(out_all) %in% input$ref.id)
-	out_match <- out_all[-i, i]
+	out_match <- out_all[-i, i]	
+	ref_match <- out_all[i, i]
+
+	if (is.null(assign_threshold)) {
+		refnms <- genotypes$variety[match(colnames(ref_match), genotypes$sample)]
+		dimnames(ref_match) <- list(refnms, refnms)
+		pun <- 1 - matchpoint:::punity(1-ref_match, seq(0, 0.5, .01))
+		  # we want the last which.max
+		assign_threshold <- pun[nrow(pun) - which.max(rev(pun[,"mean"])) + 1, "threshold"] 
+		output[["metadata"]] <- rbind(output[["metadata"]], data.frame(metric="assign_threshold (computed)", value=assign_threshold)) 
+	} else {
+		output[["metadata"]] <- rbind(output[["metadata"]], data.frame(metric="assign_threshold (user input)", value=assign_threshold)) 	
+	}
+	
 	
 	d <- data.frame(field_id=rownames(out_match), 
 					ref_id=rep(colnames(out_match), each=nrow(out_match)),
@@ -126,9 +139,7 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 	out_match <- data.frame(FieldSample=colnames(out_all)[-i], out_match, check.names=FALSE)
 	rownames(out_match) <- NULL
 
-#	mref_id <- gsub("_D.$", "", d$ref_id)
-	mref_id <- d$ref_id
-	i <- match(mref_id, genotypes$sample)
+	i <- match(d$ref_id, genotypes$sample)
 	if (any(is.na(i))) stop("check ID comparison")
 	d$variety <- genotypes$variety[i]
 	d$ref_Tid <- genotypes$TargetID[i]
@@ -145,8 +156,13 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 	names(best)[7] <- "sample_SNP_missing_rate"
 	best$IBS <- round(best$IBS, 6)
 	output[["best_match"]] <- best
-	output[["all_match"]] <- matchpoint::var_groups(out_all, assign_threshold, input$ref.id)
 
+	vg <- matchpoint:::old_var_groups(out_all, assign_threshold, input$ref.id)
+
+	vg$variety <- sapply(strsplit(vg$ref_sample, ";"), 
+				\(i) paste(unique(genotypes$variety[match(i, genotypes$sample)]), collapse="; ")
+			)
+	output[["all_match"]] <- vg
 
 	ib <- d[d$IBS > IBS_cutoff[1], ] 
 	ib$id_rank <- with(ib, stats::ave(IBS, field_id, FUN=\(x) rank(1-x, ties.method="min")))

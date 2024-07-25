@@ -8,7 +8,7 @@ punity <- function(x, thresholds) {
 	unis <- rep(NA, length(thresholds))
 	for (i in 1:length(thresholds)) {
 		a <- (x < thresholds[i])
-		g <- igraph::graph_from_adjacency_matrix(a)
+		g <- igraph::graph_from_adjacency_matrix(a, "undirected", diag=FALSE)	
 		n <- igraph::count_components(g)
 		if (n == 1) {
 			pure[i] <- 0
@@ -47,7 +47,8 @@ split_groups <- function(x, threshold, keep_nngb=TRUE, verbose=FALSE) {
 		if (all(a)) next
 		
 		# break far apart clusters 
-		g <- igraph::graph_from_adjacency_matrix(a)
+		g <- igraph::graph_from_adjacency_matrix(a, "undirected", diag=FALSE)
+		
 		n <- igraph::count_components(g)
 		if (n == 1) next 
 		m <- igraph::components(g)$membership
@@ -100,7 +101,8 @@ lump_similar <- function(x, threshold, verbose=FALSE) {
 	dimnames(x) <- list(1:ncol(x), 1:ncol(x))
 
 	adj <- (x < threshold)
-	g <- igraph::graph_from_adjacency_matrix(adj)
+	g <- igraph::graph_from_adjacency_matrix(adj, "undirected", diag=FALSE)
+	
 	n <- igraph::count_components(g)
 	if (n == ncol(adj)) {
 		return(keep)

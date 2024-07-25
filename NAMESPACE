@@ -6,3 +6,7 @@ split_groups, lump_similar, var_groups
 )
 
 
+S3method(show, darter)
+S3method(print, darter)
+
+

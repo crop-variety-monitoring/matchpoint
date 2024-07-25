@@ -306,7 +306,7 @@ fix_varnames <- function(vars) {
 
 get_varinfo <- function(path, fix_vars=TRUE) {
 
-	ffld <- list.files(path, pattern="identifier", full.names=TRUE)
+	ffld <- list.files(path, pattern="identifier.xlsx$", full.names=TRUE)
 	ffld <- ffld[substr(basename(ffld), 1, 2) != "~$"]
 	if (length(ffld) == 0) {
 		stop("no identifier file found. Check path?")
@@ -371,7 +371,7 @@ prepare_dart <- function(path, outpath) {
 	loc <- NULL
 	if (length(floc) == 1) {
 		loc <- as.data.frame(readxl::read_excel(floc))
-	}
+	} 
 	for (crop in crops) {
 		print(crop); utils::flush.console()
 		croppath <- file.path(path, crop)
@@ -380,25 +380,46 @@ prepare_dart <- function(path, outpath) {
 
 		cropf <- list.files(croppath, pattern="SNP.csv$", full.names=TRUE, ignore.case=TRUE)
 		cropf2 <- gsub("SNP.csv$", "SNP_2row.csv", cropf)
-		stopifnot(length(cropf) == 1)
 		countf <- gsub("SNP.csv$", "Counts.csv", cropf)
 
-		x <- matchpoint::read_dart(cropf) 
-		matchpoint:::copy_dart_files(croppath, outpath, x$order)
-
-		foutc <- file.path(outpath, gsub("Report_", "", basename(countf)))
-		fout1 <- file.path(outpath, gsub("Report_", "", basename(cropf)))
-		fout2 <- gsub("SNP.csv$", "SNP_2row.csv", fout1)
-		if (!file.exists(cropf2)) {
-			message("creating 2 row file")
-			y <- make_dart_2row(x)
+		if (length(cropf) > 1) {
+		
+			x <- lapply(cropf, matchpoint::read_dart) 
+			x <- matchpoint:::dart_combine(x)
+			cropf <- fout1 <- file.path(outpath, paste0(x$order, "_SNP.csv"))
+			matchpoint:::write_dart(x, fout1)
+			
+			y <- matchpoint:::make_dart_2row(x)
+			cropf2 <- fout2 <- file.path(outpath, paste0(x$order, "_SNP_2row.csv"))
 			matchpoint:::write_dart(y, fout2)
+
+			z <- lapply(countf, matchpoint::read_dart) 
+			cnts <- matchpoint:::dart_combine(z)
+			stopifnot(x$order == cnts$order)
+			foutc <- countf <- file.path(outpath, paste0(cnts$order, "_Counts.csv"))
+			matchpoint:::write_dart(cnts, countf)
+
+		} else {
+			foutc <- file.path(outpath, gsub("Report_", "", basename(countf)))
+			fout1 <- file.path(outpath, gsub("Report_", "", basename(cropf)))
+			fout2 <- gsub("SNP.csv$", "SNP_2row.csv", fout1)
+
+			x <- matchpoint::read_dart(cropf) 
+			matchpoint:::copy_dart_files(croppath, outpath, x$order)
+
+			if (!file.exists(cropf2)) {
+				message("creating 2 row file")
+				y <- make_dart_2row(x)
+				matchpoint:::write_dart(y, fout2)
+			}
 		}
 
-		cnts0 <- matchpoint::read_dart(countf) 
-		cnts <- matchpoint:::dart_make_unique(cnts0)		
+		cnts <- matchpoint::read_dart(countf) 
+		# now guaranteed to be unique
+#		cnts <- matchpoint:::dart_make_unique(cnts0)		
 
-		if (!identical(cnts, cnts0)) {  # Ethiopia
+		dothis <- FALSE
+		if (dothis) { # (!identical(cnts, cnts0)) {  # Ethiopia
 			message("not identical cnts cnts0")
 			i <- duplicated(cnts0$geno)
 			if (any(i)) {
@@ -464,11 +485,11 @@ prepare_dart <- function(path, outpath) {
 #			head(x$geno)			
 		} 
 		
-		stopifnot(length(unique(colnames(x$snp))) == ncol(x$snp))
-		stopifnot(length(unique(colnames(cnts$snp))) == ncol(cnts$snp))
+#		stopifnot(length(unique(colnames(x$snp))) == ncol(x$snp))
+#		stopifnot(length(unique(colnames(cnts$snp))) == ncol(cnts$snp))
 
-		i <- match(x$geno$genotype, cnts$geno$genotype)
-		x$geno$TargetID <- cnts$geno$TargetID[i]
+#		i <- match(x$geno$genotype, cnts$geno$genotype)
+#		x$geno$TargetID <- cnts$geno$TargetID[i]
 
 		colnames(x$marker)[colnames(x$marker) == "AlleleID"] <- "MarkerName"
 		colnames(x$snp)[colnames(x$snp) == "AlleleID"] <- "MarkerName"
@@ -508,12 +529,12 @@ prepare_dart <- function(path, outpath) {
 		if ("order" %in% names(inf)) {
 			x$info <- merge(inf, x$geno, by.x=c("order", "sample"), by.y=c("order", "genotype"))
 			if (nrow(unique(x$info[, c("order", "sample")])) != nrow(x$info)) {
-				message("info-file order/sample numbers were not unique")
+				message("info-file order/sample numbers are not unique")
 			}
 		} else {
 			x$info <- merge(inf, x$geno, by.x="sample", by.y="genotype")
 			if (length(unique(x$info$sample)) != nrow(x$info)) {
-				message("info-file sample numbers were not unique")
+				message("info-file sample numbers are not unique")
 			}		
 		}
 	#	stopifnot(nrow(x$geno) == nrow(x$info))
@@ -524,7 +545,8 @@ prepare_dart <- function(path, outpath) {
 #		ibs <- merge(x$marker[, 1:3], x$snp, all=TRUE)
 #		dartnms <- gsub("_D.$", "", colnames(x$snp)[-1])
 
-		dartnms <- colnames(x$snp)[-1]
+#		dartnms <- colnames(x$snp)[-1]
+		dartnms <- x$geno$genotype
 		refnms <- as.character(inf[inf$crop == crop, "sample"])
 		i <- match(dartnms, refnms)
 
