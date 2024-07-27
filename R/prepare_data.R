@@ -75,14 +75,13 @@ fix_filename <- function(filename) {
 }
 
 remove_unknown_samples <- function(x, sample.id, verbose=FALSE) {
-	cns <- colnames(x)
-	i <- match(cns[-1], sample.id)
+	i <- match(x$geno$genotype, sample.id)
 	j <- is.na(i)
 	if (any(j)) {
 		if (verbose) message(paste("  ", sum(j), "unmatched genotype(s) removed"))
+		x$geno <- x$geno[!j,]
 		k <- which(j) + 1
-		x <- x[, -k]
-		colnames(x) <- cns[-k]
+		x$snp <- x$snp[, -k]
 	}
 	x
 }
@@ -97,25 +96,34 @@ prepare_data <- function(x, genotypes, markers=NULL, filename, missing_rate=NULL
 	} else {
 		nr <- 2
 	}
-	
-	snp <- matchpoint:::remove_unknown_samples(x$snp, genotypes$sample, verbose=verbose)
+
+	x <- remove_unknown_samples(x, genotypes$sample, verbose=verbose)
 	#snp <- matchpoint:::fix_duplicate_names(snp, suf=dupsuf, verbose=verbose)
 
+
 	if (!(is.null(missing_rate) || is.na(missing_rate))) {
-		snp <- remove_sparse_records(snp, missing_rate, missing_rate, rows=nr, verbose)
+		x$snp <- remove_sparse_records(x$snp, missing_rate, missing_rate, rows=nr, verbose)
 	}
 	
-	cns <- colnames(snp)[-1]
-	i <- match(cns, genotypes$sample)
+	i <- match(x$geno$genotype, genotypes$sample)
+	nomatch <- which(is.na(i))
+	if (length(nomatch) > 0) {
+		nms <- x$geno$ID[nomatch]
+		match(nms, names(x$snp))
+		x$geno$genotype <- x$geno$genotype[-nomatch, ]
+	}
+
+
+	cns <- colnames(x$snp)[-1]
 	ref.id <- cns[genotypes$reference[i]]
 	field.id <- cns[!genotypes$reference[i]]
 	gds <- NULL
 
 	if (!is.null(markers)) {
 		markers <- markers[, c("MarkerName", "Chr", "Pos")]
-		imark <- match(toupper(snp[,1]), toupper(markers$MarkerName))
+		imark <- match(toupper(x$snp[,1]), toupper(markers$MarkerName))
 		if (any(is.na(imark))) {
-			unk <- snp[is.na(imark), 1]
+			unk <- x$snp[is.na(imark), 1]
 			message("   unknown markers in snp file:\n   ", paste(unk, collapse=", "))
 		}
 		markers <- markers[imark, ]
@@ -127,6 +135,6 @@ prepare_data <- function(x, genotypes, markers=NULL, filename, missing_rate=NULL
 			gds <- paste0(filename, "_geno.gds")
 		}
 	}
-	list(snp=snp, markers=markers, ref.id=ref.id, field.id=field.id, filename=filename, gds=gds)
+	list(snp=x$snp, markers=markers, ref.id=ref.id, field.id=field.id, filename=filename, gds=gds)
 }
 

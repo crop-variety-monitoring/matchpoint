@@ -387,6 +387,7 @@ prepare_dart <- function(path, outpath) {
 			x <- lapply(cropf, matchpoint::read_dart) 
 			x <- matchpoint:::dart_combine(x)
 			cropf <- fout1 <- file.path(outpath, paste0(x$order, "_SNP.csv"))
+			x$geno$ID <- NULL
 			matchpoint:::write_dart(x, fout1)
 			
 			y <- matchpoint:::make_dart_2row(x)
@@ -397,6 +398,7 @@ prepare_dart <- function(path, outpath) {
 			cnts <- matchpoint:::dart_combine(z)
 			stopifnot(x$order == cnts$order)
 			foutc <- countf <- file.path(outpath, paste0(cnts$order, "_Counts.csv"))
+			z$geno$ID <- NULL
 			matchpoint:::write_dart(cnts, countf)
 
 		} else {
@@ -491,30 +493,30 @@ prepare_dart <- function(path, outpath) {
 #		i <- match(x$geno$genotype, cnts$geno$genotype)
 #		x$geno$TargetID <- cnts$geno$TargetID[i]
 
-		colnames(x$marker)[colnames(x$marker) == "AlleleID"] <- "MarkerName"
-		colnames(x$snp)[colnames(x$snp) == "AlleleID"] <- "MarkerName"
+#		colnames(x$marker)[colnames(x$marker) == "AlleleID"] <- "MarkerName"
+#		colnames(x$snp)[colnames(x$snp) == "AlleleID"] <- "MarkerName"
 		#colnames(x$snp) <- make_unique_ids(colnames(x$snp))
 		
-		x$marker$MarkerName <- toupper(x$marker$MarkerName)
-		x$snp$MarkerName <- toupper(x$snp$MarkerName)
+#		x$marker$MarkerName <- toupper(x$marker$MarkerName)
+#		x$snp$MarkerName <- toupper(x$snp$MarkerName)
 
 		#x <- matchpoint::make_dart_1row(x)
-		x$type <- NULL
+#		x$type <- NULL
 
 		pos <- matchpoint::marker_positions(crop)
-		i <- pos$MarkerName %in% x$marker$MarkerName
+		i <- pos$MarkerName %in% x$markers$marker
 		#j <- !(x$marker$MarkerName %in% pos$MarkerName )
 		pos <- pos[i, ]
-		if (nrow(pos) != nrow(x$marker)) {
-			message(paste("SNP data has", nrow(x$marker), "markers. Panel has", nrow(pos), "matches")) 
+		if (nrow(pos) != nrow(x$markers)) {
+			message(paste("SNP data has", nrow(x$markers), "markers. Panel has", nrow(pos), "matches")) 
 		}
-		m <- match(x$marker$MarkerName, pos$MarkerName)
+		m <- match(x$markers$MarkerName, pos$MarkerName)
 		if (any(is.na(m))) message(paste0(sum(is.na(m)), " unknown markers found"))
-		x$marker$order <- 1:nrow(x$marker)
-		m <- merge(pos, x$marker, by="MarkerName", all.y=TRUE)
+		x$markers$order <- 1:nrow(x$markers)
+		m <- merge(pos, x$markers, by="MarkerName", all.y=TRUE)
 		m <- m[m$order, ]
 		m$order <- NULL
-		x$marker <- m
+		x$markers <- m
 
 	
 		if (!is.null(loc)) {
@@ -554,7 +556,7 @@ prepare_dart <- function(path, outpath) {
 
 		unk <- dartnms[which(is.na(i))]
 
-		if (length(unk) > 0) {
+		if (length(unk) > 0) {	
 			if (x$order == "DMz23-7957_7228") {
 				## undeclared 
 				unk <- unk[!(unk %in% c('327', '328', '329', '330', '331', '332', '333', '334', '335', '336', '337', '338', '339', '340', '341', '342', '343', '344'))]
@@ -586,7 +588,7 @@ prepare_dart <- function(path, outpath) {
 		utils::write.csv(x$info, paste0(bname, "_variety-info.csv"), row.names=FALSE)
 #		utils::write.csv(x$marker, paste0(bname, "_marker-info.csv"), row.names=FALSE)
 		
-		x$order <- NULL
+		x$order <- x$type <- NULL
 		writexl::write_xlsx(x, paste0(bname, ".xlsx"), format_headers=FALSE)
 	}
 }

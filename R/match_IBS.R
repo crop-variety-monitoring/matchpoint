@@ -111,7 +111,6 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 		num.thread=threads, autosome.only=FALSE, verbose=verbose,
 		maf=MAF_cutoff, missing.rate=SNP_Missing_Rate)
 
-
 	SNPRelate::snpgdsClose(genofile)
 
 	out_all <- ibs[[3]]
@@ -121,7 +120,8 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 	ref_match <- out_all[i, i]
 
 	if (is.null(assign_threshold)) {
-		refnms <- genotypes$variety[match(colnames(ref_match), genotypes$sample)]
+		gtype <- x$geno$genotype[match(colnames(ref_match), x$geno$ID)]
+		refnms <- genotypes$variety[match(gtype, genotypes$sample)]
 		dimnames(ref_match) <- list(refnms, refnms)
 		pun <- 1 - matchpoint:::punity(1-ref_match, seq(0, 0.5, .01))
 		  # we want the last which.max
@@ -132,8 +132,8 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 	}
 	
 	
-	d <- data.frame(field_id=rownames(out_match), 
-					ref_id=rep(colnames(out_match), each=nrow(out_match)),
+	d <- data.frame(GID=rownames(out_match), field_id=x$geno$genotype[match(rownames(out_match), x$geno$ID)], 
+					ref_id=rep(x$geno$genotype[match(colnames(out_match), x$geno$ID)], each=nrow(out_match)),
 					variety="", IBS=as.vector(out_match))
 
 	out_match <- data.frame(FieldSample=colnames(out_all)[-i], out_match, check.names=FALSE)
@@ -152,8 +152,8 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 	d <- d[order(d$field_id, -d$IBS), ]
 # matches
 	best <- d[!duplicated(d$field_id),]
-	best <- merge(best, smp_mr, by.x="field_id", by.y="row.names", all.y=TRUE)
-	names(best)[7] <- "sample_SNP_missing_rate"
+	best <- merge(best, smp_mr, by.x="GID", by.y="row.names", all.y=TRUE)
+	names(best)[ncol(best)] <- "sample_SNP_missing_rate"
 	best$IBS <- round(best$IBS, 6)
 	output[["best_match"]] <- best
 

@@ -8,8 +8,8 @@ read_dart <- function(filename) {
 	srow <- sum(r[1:30, 1] == "*") + 1
 	scol <- sum(r[1, 1:50] == "*") + 1
 
-	marker <- r[(srow+1):nrow(r), 1:(scol-1), ]
-	colnames(marker) <- r[srow, 1:(scol-1)]
+	markers <- r[(srow+1):nrow(r), 1:(scol-1), ]
+	colnames(markers) <- r[srow, 1:(scol-1)]
 
 	hdr <- data.frame(t(r[1:srow, scol:ncol(r)]))
 	cns <- c("order", "plate_barcode", "sample_reproducibility", "plate_row", "plate_col", "plate_id", "genotype")
@@ -24,32 +24,48 @@ read_dart <- function(filename) {
 	v <- as.vector(d)
 	v[v == "-"] <- NA
 	d <- matrix(as.integer(v), nrow=nrow(d), ncol=ncol(d))	
-	d <- data.frame(r[(srow+1):nrow(r), 1:2], d, check.names=FALSE)
+	colnames(d) <- ids
 
-	if (grepl("_Counts", filename) || isTRUE(any(d[,-c(1:2)] > 2))) { 		
-		colnames(d) <- c(colnames(marker)[1:2], ids)
-		out <- list(snp=d, marker=marker, geno=hdr, type="counts", order=ordname)
-	} else {
-		i <- seq(1, nrow(d), 2)
-		if (grepl("_2row", filename) || (all(d[i,1] == d[i+1,1]))) {
-			colnames(d) <- c(colnames(marker)[1:2], ids)
-			out <- list(snp=d, marker=marker, geno=hdr, type="2_row", order=ordname)
-		} else if (nrow(d) == length(unique(d[, 1]))) {
-			d <- d[,-2]
-			colnames(d) <- c(colnames(marker)[1], ids)
-			out <- list(snp=d, marker=marker, geno=hdr, type="1_row", order=ordname)	
+#	d <- data.frame(r[(srow+1):nrow(r), 1:2], d, check.names=FALSE)
+	mname <- function(m) {
+		names(m) <- tolower(names(m))
+		if (!is.null(m$variant)) {
+			i <- m$variant != ""
+			m[i,1] <- paste0(m[i,1], "|", m$variant[i])
+			m[,1]
 		} else {
-			warning("don't know if this is a Count, 1_row or a 2_row file")
-			out <- list(snp=d, marker=marker, geno=hdr, type="???", order=ordname)		
+			paste0(m[,1], "_", 1:2)
 		}
 	}
+
+	colnames(markers)[1] <- "MarkerName"
+	markers$MarkerName <- toupper(markers$MarkerName)
+
+	if (grepl("_Counts", filename) || isTRUE(any(d > 2))) {
+		marker <- mname(markers)
+		ftype <- "counts"
+	} else {
+		i <- seq(2, nrow(d), 2)
+		if (grepl("_2row", filename) || (all(markers[i,1] == markers[i-1,1]))) {
+			marker <- mname(markers)
+			ftype <- "2_row"
+		} else if (nrow(d) == length(unique(markers[, 1]))) {
+			marker <- markers[,1]
+			ftype <- "1_row"
+		} else {
+			warning("don't know if this is a 'counts', '1_row' or a '2_row' file")
+		}
+	}
+	markers <- data.frame(marker=marker, markers)
+	d <- data.frame(marker=marker, d)
+	out <- list(snp=d, markers=markers, geno=hdr, type=ftype, order=ordname)	
 	class(out) <- "darter"
 	out
 }
 
-show.darter = \(object) print(object)
+show.darter <-  \(object) print(object)
 
-print.darter = \(x, ...) {
+print.darter <-  \(x, ...) {
 	cat("class       :" , class(x), "\n")
 	cat("order       :" , x$order, "\n")
 	cat("type        :" , x$type, "\n")
@@ -60,6 +76,13 @@ print.darter = \(x, ...) {
 	}
 	cat("genotypes   :" , nrow(x$geno), "\n")
 }
+
+head.darter <-  \(x, n=6, ...) {
+	cat("snp\n")
+	print(x$snp[1:n, 1:12])
+}
+
+
 
 
 make_dart_1row <- function(x) {
@@ -156,14 +179,17 @@ old_dart_make_unique <- function(x) {
 
 
 write_dart <- function(x, filename) {
-	if (x$type == "1_row") {
-		idcols <- 1
-	} else {
-		idcols <- 1:2	
-	}
-	s <- cbind(x$marker, x$snp[, -idcols])
+	s <- x$snp[, -1]
+	colnames(s) <- x$geno$genotype
+	s <- cbind(x$marker, s)	
 	s <- rbind(colnames(s), s)
-	g <- t(x$geno)
+	
+	g <- x$geno
+	
+	if (is.null(g$TargetID)) g$genotype <- NULL
+	g$ID <- g$TargetID <- NULL
+	g <- t(g)
+
 	d <- abs(dim(g) - c(0, ncol(s)))
 	if (x$type == "counts") {
 		s[1, (d[2]+1):ncol(s)] <- g[nrow(g), ]
@@ -183,20 +209,17 @@ dart_combine <- function(x) {
 	stopifnot(is.list(x))
 	out <- x[[1]]
 	if (length(x) == 1) return(out)
-
-	nc <- if (out$type == "1_row") 1 else 1:2
-	byv <- c("MarkerName", "AlleleSequence")[nc]
-
+	
 	out$geno$ID <- paste0("G", 1:nrow(out$geno))
-	names(out$snp)[-nc] <- out$geno$ID 
+	names(out$snp)[-1] <- out$geno$ID 
 	
 	for (i in 2:length(x)) {
 		y <- x[[i]]
 		s <- nrow(out$geno)
 		y$geno$ID <- paste0("G", (s+1):(s + nrow(y$geno)))
-		names(y$snp)[-nc] <- y$geno$ID 
+		names(y$snp)[-1] <- y$geno$ID 
 		
-		out$snp <- merge(out$snp, y$snp, by=byv, all=TRUE)
+		out$snp <- merge(out$snp, y$snp, by="marker", all=TRUE)
 		out$geno <- rbind(out$geno, y$geno)
 		out$order <- paste0(out$order, "_", y$order)
 	}
