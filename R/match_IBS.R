@@ -123,9 +123,9 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 		gtype <- x$geno$genotype[match(colnames(ref_match), x$geno$ID)]
 		refnms <- genotypes$variety[match(gtype, genotypes$sample)]
 		dimnames(ref_match) <- list(refnms, refnms)
-		pun <- 1 - matchpoint:::punity(1-ref_match, seq(0, 0.5, .01))
+		pun <- matchpoint:::punity(1-ref_match, seq(0, 0.5, .01))
 		  # we want the last which.max
-		assign_threshold <- pun[nrow(pun) - which.max(rev(pun[,"mean"])) + 1, "threshold"] 
+		assign_threshold <- 1-pun[nrow(pun) - which.max(rev(pun[,"mean"])) + 1, "threshold"] 
 		output[["metadata"]] <- rbind(output[["metadata"]], data.frame(metric="assign_threshold (computed)", value=assign_threshold)) 
 	} else {
 		output[["metadata"]] <- rbind(output[["metadata"]], data.frame(metric="assign_threshold (user input)", value=assign_threshold)) 	

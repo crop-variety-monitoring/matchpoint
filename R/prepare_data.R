@@ -92,12 +92,11 @@ prepare_data <- function(x, genotypes, markers=NULL, filename, missing_rate=NULL
 	filename <- matchpoint:::fix_filename(filename)
 	if (x$type != "1_row") {
 		nr <- 1
-		x$snp <- x$snp[,-2]
 	} else {
 		nr <- 2
 	}
 
-	x <- remove_unknown_samples(x, genotypes$sample, verbose=verbose)
+	x <- matchpoint:::remove_unknown_samples(x, genotypes$sample, verbose=verbose)
 	#snp <- matchpoint:::fix_duplicate_names(snp, suf=dupsuf, verbose=verbose)
 
 
@@ -112,7 +111,6 @@ prepare_data <- function(x, genotypes, markers=NULL, filename, missing_rate=NULL
 		match(nms, names(x$snp))
 		x$geno$genotype <- x$geno$genotype[-nomatch, ]
 	}
-
 
 	cns <- colnames(x$snp)[-1]
 	ref.id <- cns[genotypes$reference[i]]

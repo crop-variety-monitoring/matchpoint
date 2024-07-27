@@ -16,7 +16,7 @@ count_fractions <- function(counts, mincounts=NULL) {
 match_CDS <- function(x, genotypes, markers, method = "cor", snp_missing_rate=0.2, CDS_cutoff=0.5,
 		mincounts=NULL, assign_threshold=NULL, filename, verbose=FALSE) {
 
-	input <- matchpoint:::prepare_data(x, genotypes, markers, filename=filename, verbose=verbose)
+	input <- matchpoint:::prepare_data(x, genotypes, filename=filename, verbose=verbose)
 
 	fract <- matchpoint:::count_fractions(input$snp, mincounts=mincounts)
 	mr <- colSums(is.na(fract[,-1])) / nrow(fract)
@@ -37,8 +37,11 @@ match_CDS <- function(x, genotypes, markers, method = "cor", snp_missing_rate=0.
 	out_match <- out_all[-i, i]
 	ref_match <- out_all[i, i]
 	
+
 	if (is.null(assign_threshold)) {
-		refnms <- genotypes$variety[match(colnames(ref_match), genotypes$sample)]
+		gtype <- x$geno$genotype[match(colnames(ref_match), x$geno$ID)]
+		refnms <- genotypes$variety[match(gtype, genotypes$sample)]
+	
 		dimnames(ref_match) <- list(refnms, refnms)
 		pun <- matchpoint:::punity(1-ref_match, seq(0, 0.5, .01))
 		# we want the last which.max
@@ -48,10 +51,10 @@ match_CDS <- function(x, genotypes, markers, method = "cor", snp_missing_rate=0.
 		output[["metadata"]] <- rbind(output[["metadata"]], data.frame(metric="assign_threshold (user input)", value=assign_threshold)) 	
 	}
 	
-	d <- data.frame(field_id=rownames(out_match), 
-					ref_id=rep(colnames(out_match), each=nrow(out_match)),
+	d <- data.frame(GID=rownames(out_match), field_id=x$geno$genotype[match(rownames(out_match), x$geno$ID)], 
+					ref_id=rep(x$geno$genotype[match(colnames(out_match), x$geno$ID)], each=nrow(out_match)),
 					variety="", CDS=as.vector(out_match))
-
+	
 	out_match <- data.frame(FieldSample=colnames(out_all)[-i], out_match, check.names=FALSE)
 	rownames(out_match) <- NULL
 
