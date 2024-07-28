@@ -121,3 +121,9 @@ match_CDS <- function(x, genotypes, markers, method = "cor", snp_missing_rate=0.
 }
 
 
+
+refine_CDS <- function(x, genotypes, markers, method = "cor", snp_missing_rate=0.2, CDS_cutoff=0.5,
+		mincounts=NULL, assign_threshold=NULL, filename, verbose=FALSE) {
+
+
+}

@@ -389,6 +389,8 @@ prepare_dart <- function(path, outpath) {
 			cropf <- fout1 <- file.path(outpath, paste0(x$order, "_SNP.csv"))
 			x$geno$ID <- NULL
 			matchpoint:::write_dart(x, fout1)
+			# we need it again later, with the geno$ID restored
+			x <- matchpoint::read_dart(cropf) 
 			
 			y <- matchpoint:::make_dart_2row(x)
 			cropf2 <- fout2 <- file.path(outpath, paste0(x$order, "_SNP_2row.csv"))
@@ -398,7 +400,7 @@ prepare_dart <- function(path, outpath) {
 			cnts <- matchpoint:::dart_combine(z)
 			stopifnot(x$order == cnts$order)
 			foutc <- countf <- file.path(outpath, paste0(cnts$order, "_Counts.csv"))
-			z$geno$ID <- NULL
+			cnts$geno$ID <- NULL
 			matchpoint:::write_dart(cnts, countf)
 
 		} else {

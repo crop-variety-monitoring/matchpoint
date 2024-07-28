@@ -1,12 +1,9 @@
 
-
-match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0.2, 
+run_IBS <- function(input, MAF_cutoff=0.05, SNP_Missing_Rate=0.2, 
 				Ref_Missing_Rate=0.2, Sample_Missing_Rate=0.2, 
 				Ref_Heterozygosity_Rate=1, Sample_Heterozygosity_Rate=1,
-				IBS_cutoff=0.5, Inb_method="mom.visscher", assign_threshold=NULL,
-				threads=4, verbose=FALSE, filename="") {
+				Inb_method="mom.visscher", threads=4, verbose=FALSE) {
 
-	input <- matchpoint:::prepare_data(x, genotypes, markers, filename=filename, verbose=verbose)
 	
 	meta1 <- data.frame(metric=c("n references", "n samples", "n markers"), 
 						value=c(length(input$ref.id), length(input$field.id), nrow(input$snp)))
@@ -47,27 +44,11 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 	snpinfo$drop_maf <- (snpinfo$maf < MAF_cutoff) | is.na(snpinfo$maf)
 	snpinfo$drop_mr <- snpinfo$mr > SNP_Missing_Rate
 	snpinfo$drop <- snpinfo$drop_maf | snpinfo$drop_mr
- 	
-	# calculate sample missing rate
-	smp_mr <- SNPRelate::snpgdsSampMissRate(genofile, sample.id=input$field.id, snp.id=d0$snpid, with.id=TRUE)
-	
-	ref_mr <- SNPRelate::snpgdsSampMissRate(genofile, sample.id=input$ref.id, snp.id=d0$snpid, with.id=TRUE)
-
-	meta2 <- data.frame(
-		metric=c("IBS_cutoff", "MAF_cutoff", "SNP_Missing_Raste Cutoff", "Marker Final", "Field Sample Total", "Field Sample Missing Cutoff", "Field Final", "Reference Sample Total", "Reference Sample Missing Cutoff", "Reference Final"), 
-		value=c(IBS_cutoff, MAF_cutoff, SNP_Missing_Rate, nrow(d0), length(input$field.id), Sample_Missing_Rate, sum(smp_mr <= Sample_Missing_Rate), length(input$ref.id), Ref_Missing_Rate, sum(ref_mr <= Sample_Missing_Rate))
-	)
-
-	# calculate inbreeding coefficient and then heterozygosity for field data
-	inb_fld <- SNPRelate::snpgdsIndInb(genofile, sample.id=input$field.id, snp.id=d0$snp.id, autosome.only=FALSE,remove.monosnp=TRUE, maf=NaN,missing.rate=NaN, method=Inb_method, allele.freq=NULL, out.num.iter=TRUE, verbose=verbose)
-
-	# calculate inbreeding coefficient and then heterozygosity for ref data
-	inb_ref <- SNPRelate::snpgdsIndInb(genofile, sample.id=input$ref.id, snp.id=d0$snp.id, autosome.only=FALSE, remove.monosnp=TRUE, maf=NaN, missing.rate=NaN, method=Inb_method, allele.freq=NULL, out.num.iter=TRUE, verbose=verbose)
-	
 
 	# calculate het rate
 	h <- apply(dmat, 2, \(x) sum(x==1) / sum(x!=3))
 	h <- data.frame(sid=colnames(dmat), h=h)
+
 
 	clamp_merge_drop <- function(het, sid, inb, mr, mr_thold, het_thold, name) {
 		x <- data.frame(sid=sid, inb=inb)
@@ -85,18 +66,34 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 		out$drop <- out$drop_miss | out$drop_het
 		out
 	}
-	
-	fld <- clamp_merge_drop(h, inb_fld$sample.id, inb_fld$inbreeding, smp_mr, 
-			Sample_Missing_Rate, Sample_Heterozygosity_Rate, "fld_id") 
-	ref <- clamp_merge_drop(h, inb_ref$sample.id, inb_ref$inbreeding, ref_mr, 
-			Ref_Missing_Rate, Ref_Heterozygosity_Rate, "ref_id") 
+ 	
+	# calculate sample missing rate
+	if (length(input$field.id) > 0) {
+		smp_mr <- SNPRelate::snpgdsSampMissRate(genofile, sample.id=input$field.id, snp.id=d0$snpid, with.id=TRUE)
+	# calculate inbreeding coefficient and then heterozygosity for field data
+		inb_fld <- SNPRelate::snpgdsIndInb(genofile, sample.id=input$field.id, snp.id=d0$snp.id, autosome.only=FALSE,remove.monosnp=TRUE, maf=NaN,missing.rate=NaN, method=Inb_method, allele.freq=NULL, out.num.iter=TRUE, verbose=verbose)
+		fld <- clamp_merge_drop(h, inb_fld$sample.id, inb_fld$inbreeding, smp_mr, Sample_Missing_Rate, Sample_Heterozygosity_Rate, "fld_id") 
+	} else {
+		smp_mr <- NA
+		inb_fld <- NA
+		fld <- data.frame(fld_id=0, het=0, drop_miss=TRUE)
+	}
+	ref_mr <- SNPRelate::snpgdsSampMissRate(genofile, sample.id=input$ref.id, snp.id=d0$snpid, with.id=TRUE)
+	# calculate inbreeding coefficient and then heterozygosity for ref data
+	inb_ref <- SNPRelate::snpgdsIndInb(genofile, sample.id=input$ref.id, snp.id=d0$snp.id, autosome.only=FALSE, remove.monosnp=TRUE, maf=NaN, missing.rate=NaN, method=Inb_method, allele.freq=NULL, out.num.iter=TRUE, verbose=verbose)
+	ref <- clamp_merge_drop(h, inb_ref$sample.id, inb_ref$inbreeding, ref_mr, Ref_Missing_Rate, Ref_Heterozygosity_Rate, "ref_id") 
+
+
+	meta2 <- data.frame(
+		metric=c("MAF_cutoff", "SNP_Missing_Raste Cutoff", "Marker Final", "Field Sample Total", "Field Sample Missing Cutoff", "Field Final", "Reference Sample Total", "Reference Sample Missing Cutoff", "Reference Final"), 
+		value=c(MAF_cutoff, SNP_Missing_Rate, nrow(d0), length(input$field.id), Sample_Missing_Rate, sum(smp_mr <= Sample_Missing_Rate), length(input$ref.id), Ref_Missing_Rate, sum(ref_mr <= Sample_Missing_Rate))
+	)
 
 	meta3 <- data.frame(
 		metric=c("Sample Het Avg", "Sample Het SD", "Sample Het Max", "Sample Het Min", "Ref Heterozygosity Cutoff", "Sample Heterozygosity Cutoff"), 
 		value=c(mean(fld$het), 	stats::sd(fld$het), max(fld$het), min(fld$het), Ref_Heterozygosity_Rate, Sample_Heterozygosity_Rate)
 	)
 	meta <- rbind(meta1, meta2, meta3)
-	output <- list(metadata=meta)
 	
 	# calculate pair-wise IBS
 
@@ -113,24 +110,50 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 
 	SNPRelate::snpgdsClose(genofile)
 
+#	ref$variety <- genotypes$variety[match(gsub("_D.$", "", ref$ref_id), genotypes$sample)]
+	ref$variety <- genotypes$variety[match(ref$ref_id, genotypes$ID)]
+
+	list(metadata=meta, ref=ref, fld=fld, snpinfo = snpinfo, ibs=ibs, smp_mr=smp_mr, ref=ref)
+}
+
+
+match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0.2, 
+				Ref_Missing_Rate=0.2, Sample_Missing_Rate=0.2, 
+				Ref_Heterozygosity_Rate=1, Sample_Heterozygosity_Rate=1,
+				IBS_cutoff=0.5, Inb_method="mom.visscher", assign_threshold=NULL,
+				threads=4, verbose=FALSE, filename="") {
+
+
+	input <- matchpoint:::prepare_data(x, genotypes, markers, filename=filename, verbose=verbose)
+	
+# x, genotypes, markers, 
+	rIBS <- matchpoint:::run_IBS(input, MAF_cutoff=MAF_cutoff, SNP_Missing_Rate=SNP_Missing_Rate, 
+				Ref_Missing_Rate=Ref_Missing_Rate, Sample_Missing_Rate=Sample_Missing_Rate, 
+				Ref_Heterozygosity_Rate=Ref_Heterozygosity_Rate, Sample_Heterozygosity_Rate=Sample_Heterozygosity_Rate,
+				Inb_method=Inb_method, threads=threads, verbose=verbose) 
+
+	ibs <- rIBS$ibs
+	smp_mr <- rIBS$smp_mr
+	output <- rIBS[c("metadata", "ref", "fld", "snpinfo")]
+	
 	out_all <- ibs[[3]]
 	colnames(out_all) <- rownames(out_all) <- ibs[[1]]
 	i <- which(colnames(out_all) %in% input$ref.id)
-	out_match <- out_all[-i, i]	
 	ref_match <- out_all[i, i]
+	out_match <- out_all[-i, i]	
 
 	if (is.null(assign_threshold)) {
 		gtype <- x$geno$genotype[match(colnames(ref_match), x$geno$ID)]
 		refnms <- genotypes$variety[match(gtype, genotypes$sample)]
 		dimnames(ref_match) <- list(refnms, refnms)
 		pun <- matchpoint:::punity(1-ref_match, seq(0, 0.5, .01))
-		  # we want the last which.max
+		# we want the last which.max
 		assign_threshold <- 1-pun[nrow(pun) - which.max(rev(pun[,"mean"])) + 1, "threshold"] 
-		output[["metadata"]] <- rbind(output[["metadata"]], data.frame(metric="assign_threshold (computed)", value=assign_threshold)) 
+		output$metadata <- rbind(output$metadata, data.frame(metric="assign_threshold (computed)", value=assign_threshold)) 
+		output$punity <- data.frame(pun)
 	} else {
-		output[["metadata"]] <- rbind(output[["metadata"]], data.frame(metric="assign_threshold (user input)", value=assign_threshold)) 	
+		output$metadata <- rbind(output$metadata, data.frame(metric="assign_threshold (user input)", value=assign_threshold)) 	
 	}
-	
 	
 	d <- data.frame(GID=rownames(out_match), field_id=x$geno$genotype[match(rownames(out_match), x$geno$ID)], 
 					ref_id=rep(x$geno$genotype[match(colnames(out_match), x$geno$ID)], each=nrow(out_match)),
@@ -196,15 +219,11 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 	out_all <- data.frame(ID=colnames(out_all), 1-out_all, check.names=FALSE)
 	rownames(out_all) <- NULL
 	output[["distance"]] <- out_all
-	output[["snpinfo"]] <- snpinfo
 
-#	ref$variety <- genotypes$variety[match(gsub("_D.$", "", ref$ref_id), genotypes$sample)]
-	ref$variety <- genotypes$variety[match(ref$ref_id, genotypes$sample)]
-	output[["ref"]] <- ref
-	output[["field"]] <- fld
 
 	if (input$filename != "") {
 		xlsx <- paste0(input$filename, "_IBS.xlsx")
+		dir.create(dirname(xlsx), FALSE, TRUE)
 		writexl::write_xlsx(output, xlsx, format_headers=FALSE)
 		saveRDS(ibs, paste0(input$filename, "_IBS.rds"))
 		invisible(output)
@@ -215,3 +234,61 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 }
 
 
+
+
+refine_IBS <- function(x, genotypes, markers, ref_split=0.1, ref_lump=0.05, 
+				MAF_cutoff=0.05, SNP_Missing_Rate=0.2, 
+				Ref_Missing_Rate=0.2, Sample_Missing_Rate=0.2, 
+				Ref_Heterozygosity_Rate=1, Sample_Heterozygosity_Rate=1,
+				Inb_method="mom.visscher",	threads=4, verbose=FALSE, filename="") {
+
+
+	gtypes <- genotypes[genotypes$reference, ]
+
+	input <- matchpoint:::prepare_data(x, gtypes, markers, filename=filename, verbose=verbose)
+	
+	rIBS <- matchpoint:::run_IBS(input, MAF_cutoff=MAF_cutoff, SNP_Missing_Rate=SNP_Missing_Rate, 
+				Ref_Missing_Rate=Ref_Missing_Rate, Sample_Missing_Rate=Sample_Missing_Rate, 
+				Ref_Heterozygosity_Rate=Ref_Heterozygosity_Rate, Sample_Heterozygosity_Rate=Sample_Heterozygosity_Rate,
+				Inb_method=Inb_method, threads=threads, verbose=verbose) 
+
+	ibs <- rIBS$ibs
+
+	out_all <- ibs[[3]]
+	colnames(out_all) <- rownames(out_all) <- ibs[[1]]
+	i <- which(colnames(out_all) %in% input$ref.id)
+	dstm <- 1-out_all[i, i]
+	ids <- colnames(dstm)
+	nms <- gtypes$variety[match(colnames(dstm), gtypes$ID)]
+	colnames(dstm) <- rownames(dstm) <- nms
+	if (is.null(ref_split) || (is.na(ref_split))) {
+		gtype <- x$geno$gtype[match(colnames(dstm), x$geno$ID)]
+		refnms <- gtypes$variety[match(gtype, gtypes$sample)]
+		dimnames(dstm) <- list(refnms, refnms)
+		pun <- matchpoint:::punity(dstm, seq(0, 0.5, .01))
+		# we want the last which.max
+		ref_split <- 1-pun[nrow(pun) - which.max(rev(pun[,"mean"])) + 1, "threshold"] 
+	}
+	if (is.null(ref_lump) || is.na(ref_lump)) ref_lump <- ref_split / 2
+	
+	output <- matchpoint:::refine_reference(dstm, lump=ref_lump, split=ref_split)
+	output$distance <- data.frame(dstm, check.names=FALSE)
+
+	nms <- data.frame(ID=ids, output$names[, "new", drop=FALSE])
+	colnames(nms)[2] <- "variety"
+	colnames(genotypes)[colnames(genotypes) == "variety"] <- "old_variety"
+	output$genotypes <- merge(genotypes, nms, by="ID", all.x=TRUE)
+	# to avoid "Coercing columnn plate_barcode from int64 to double" warning
+	output$genotypes$plate_barcode <- as.character(output$genotypes$plate_barcode)
+
+	filename <- trimws(filename)
+	if (filename == "") {
+		return(output)
+	} else {
+		xlsx <- paste0(filename, ".xlsx")
+		dir.create(dirname(xlsx), FALSE, TRUE)
+		writexl::write_xlsx(output, xlsx, format_headers=FALSE)
+		saveRDS(output, paste0(filename, ".rds"))
+		invisible(output)
+	}
+}

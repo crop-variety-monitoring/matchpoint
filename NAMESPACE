@@ -1,6 +1,10 @@
 export(
 read_dart, make_dart_1row, 
-match_IBS, marker_positions,
+
+refine_IBS, match_IBS, 
+refine_CDS, match_CDS, 
+marker_positions,
+
 group_dend, nngb_dist, self_dist, other_dist,
 split_groups, lump_similar, var_groups
 )
