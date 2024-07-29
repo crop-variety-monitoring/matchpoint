@@ -19,16 +19,19 @@ run_IBS <- function(input, MAF_cutoff=0.05, SNP_Missing_Rate=0.2,
 	# “Bit2” indicates that each byte encodes up to four SNP genotypes 
 	# since one byte consists of eight bits.
 
-	dmat <- as.matrix(input$snp[, -1])
+	dmat <- input$snp
 	dmat[] <- match(dmat, c(0,2,1,NA)) - 1
 	
 	## create a gds file
-	SNPRelate::snpgdsCreateGeno(input$gds, genmat=dmat,
+	SNPRelate::snpgdsCreateGeno(
+					input$gds, 
+					genmat=dmat,
 					sample.id = colnames(dmat), 
 					snp.id = input$markers$MarkerName,
 					snp.chromosome = input$markers$Chr,
 					snp.position = input$markers$Pos,
-					snp.allele = NULL, snpfirstdim=TRUE)
+					snp.allele = NULL, 
+					snpfirstdim=TRUE)
 	
 		
 	# open the gds file
@@ -117,14 +120,14 @@ run_IBS <- function(input, MAF_cutoff=0.05, SNP_Missing_Rate=0.2,
 }
 
 
-match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0.2, 
+match_IBS <- function(x, genotypes, markers, match_field, MAF_cutoff=0.05, SNP_Missing_Rate=0.2, 
 				Ref_Missing_Rate=0.2, Sample_Missing_Rate=0.2, 
 				Ref_Heterozygosity_Rate=1, Sample_Heterozygosity_Rate=1,
 				IBS_cutoff=0.5, Inb_method="mom.visscher", assign_threshold=NULL,
 				threads=4, verbose=FALSE, filename="") {
 
 
-	input <- matchpoint:::prepare_data(x, genotypes, markers, filename=filename, verbose=verbose)
+	input <- matchpoint:::prepare_data(x, genotypes, match_field, markers, filename=filename, verbose=verbose)
 	
 # x, genotypes, markers, 
 	rIBS <- matchpoint:::run_IBS(input, MAF_cutoff=MAF_cutoff, SNP_Missing_Rate=SNP_Missing_Rate, 
@@ -154,6 +157,7 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 	} else {
 		output$metadata <- rbind(output$metadata, data.frame(metric="assign_threshold (user input)", value=assign_threshold)) 	
 	}
+
 	
 	d <- data.frame(GID=rownames(out_match), field_id=x$geno$genotype[match(rownames(out_match), x$geno$ID)], 
 					ref_id=rep(x$geno$genotype[match(colnames(out_match), x$geno$ID)], each=nrow(out_match)),
@@ -235,31 +239,9 @@ match_IBS <- function(x, genotypes, markers, MAF_cutoff=0.05, SNP_Missing_Rate=0
 
 
 
-
-refine_IBS <- function(x, genotypes, markers, ref_split=0.1, ref_lump=0.05, 
-				MAF_cutoff=0.05, SNP_Missing_Rate=0.2, 
-				Ref_Missing_Rate=0.2, Sample_Missing_Rate=0.2, 
-				Ref_Heterozygosity_Rate=1, Sample_Heterozygosity_Rate=1,
-				Inb_method="mom.visscher",	threads=4, verbose=FALSE, filename="") {
-
-
-	gtypes <- genotypes[genotypes$reference, ]
-
-	input <- matchpoint:::prepare_data(x, gtypes, markers, filename=filename, verbose=verbose)
-	
-	rIBS <- matchpoint:::run_IBS(input, MAF_cutoff=MAF_cutoff, SNP_Missing_Rate=SNP_Missing_Rate, 
-				Ref_Missing_Rate=Ref_Missing_Rate, Sample_Missing_Rate=Sample_Missing_Rate, 
-				Ref_Heterozygosity_Rate=Ref_Heterozygosity_Rate, Sample_Heterozygosity_Rate=Sample_Heterozygosity_Rate,
-				Inb_method=Inb_method, threads=threads, verbose=verbose) 
-
-	ibs <- rIBS$ibs
-
-	out_all <- ibs[[3]]
-	colnames(out_all) <- rownames(out_all) <- ibs[[1]]
-	i <- which(colnames(out_all) %in% input$ref.id)
-	dstm <- 1-out_all[i, i]
+finish_refine <- function(x, dstm, gtypes, match_field, ref_lump, ref_split, filename) {
 	ids <- colnames(dstm)
-	nms <- gtypes$variety[match(colnames(dstm), gtypes$ID)]
+	nms <- gtypes$variety[match(colnames(dstm), gtypes[,match_field])]
 	colnames(dstm) <- rownames(dstm) <- nms
 	if (is.null(ref_split) || (is.na(ref_split))) {
 		gtype <- x$geno$gtype[match(colnames(dstm), x$geno$ID)]
@@ -272,14 +254,14 @@ refine_IBS <- function(x, genotypes, markers, ref_split=0.1, ref_lump=0.05,
 	if (is.null(ref_lump) || is.na(ref_lump)) ref_lump <- ref_split / 2
 	
 	output <- matchpoint:::refine_reference(dstm, lump=ref_lump, split=ref_split)
+	colnames(dstm) <- rownames(dstm) <- output$varieties$new
 	output$distance <- data.frame(dstm, check.names=FALSE)
 
-	nms <- data.frame(ID=ids, output$names[, "new", drop=FALSE])
-	colnames(nms)[2] <- "variety"
+	nms <- data.frame(ID=ids, variety=output$varieties$new_name)
 	colnames(genotypes)[colnames(genotypes) == "variety"] <- "old_variety"
-	output$genotypes <- merge(genotypes, nms, by="ID", all.x=TRUE)
-	# to avoid "Coercing columnn plate_barcode from int64 to double" warning
-	output$genotypes$plate_barcode <- as.character(output$genotypes$plate_barcode)
+	output$genotypes <- merge(genotypes, nms, by.x=match_field, by.y="ID", all.x=TRUE)
+	# to avoid "Coercing column plate_barcode from int64 to double" warning
+	if (!is.null(output$genotypes$plate_barcode)) output$genotypes$plate_barcode <- as.character(output$genotypes$plate_barcode)
 
 	filename <- trimws(filename)
 	if (filename == "") {
@@ -292,3 +274,32 @@ refine_IBS <- function(x, genotypes, markers, ref_split=0.1, ref_lump=0.05,
 		invisible(output)
 	}
 }
+
+
+refine_IBS <- function(x, genotypes, match_field, markers, ref_split=0.1, ref_lump=0.05, 
+				MAF_cutoff=0.05, SNP_Missing_Rate=0.2, 
+				Ref_Missing_Rate=0.2, Sample_Missing_Rate=0.2, 
+				Ref_Heterozygosity_Rate=1, Sample_Heterozygosity_Rate=1,
+				Inb_method="mom.visscher",	threads=4, verbose=FALSE, filename="") {
+
+
+	gtypes <- genotypes[genotypes$reference, ]
+
+	input <- matchpoint:::prepare_data(x, gtypes, match_field, markers, filename=filename, verbose=verbose)
+	
+	rIBS <- matchpoint:::run_IBS(input, MAF_cutoff=MAF_cutoff, SNP_Missing_Rate=SNP_Missing_Rate, 
+				Ref_Missing_Rate=Ref_Missing_Rate, Sample_Missing_Rate=Sample_Missing_Rate, 
+				Ref_Heterozygosity_Rate=Ref_Heterozygosity_Rate, Sample_Heterozygosity_Rate=Sample_Heterozygosity_Rate,
+				Inb_method=Inb_method, threads=threads, verbose=verbose) 
+
+	ibs <- rIBS$ibs
+
+	dstm <- 1-ibs[[3]]
+	colnames(dstm) <- rownames(dstm) <- ibs[[1]]
+	#i <- which(colnames(dstm) %in% input$ref.id)
+	#dstm <- 1-dstm[i, i]
+
+	finish_refine(x, dstm, gtypes, match_field, ref_lump, ref_split, filename)
+
+}
+

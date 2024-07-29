@@ -12,19 +12,25 @@ read_dart <- function(filename) {
 	colnames(markers) <- r[srow, 1:(scol-1)]
 
 	hdr <- data.frame(t(r[1:srow, scol:ncol(r)]))
-	cns <- c("order", "plate_barcode", "sample_reproducibility", "plate_row", "plate_col", "plate_id", "genotype")
+	cns <- c("order", "plate_barcode", "sample_reproducibility", "plate_row", "plate_col", "plate_id", "genotypeID")
 	if (ncol(hdr) == 7) {
 		colnames(hdr) <- cns
+		hdr$ID <- hdr$genotypeID
 	} else 	if (ncol(hdr) == 8) {
-		colnames(hdr) <- c(cns, "TargetID")
+		colnames(hdr) <- c(cns, "targetID")
+		if (length(unique(hdr$genotypeID)) < nrow(hdr)) {
+			hdr$ID <- hdr$targetID
+		} else {
+			hdr$ID <- hdr$genotypeID	
+		}
+	} else {
+		stop("I do not understand the header of this file")
 	}
-	ids <- paste0("G", 1:nrow(hdr))
-	hdr <- data.frame(ID=ids, hdr)
 	d <- as.matrix(r[(srow+1):nrow(r), scol:ncol(r)])
 	v <- as.vector(d)
 	v[v == "-"] <- NA
 	d <- matrix(as.integer(v), nrow=nrow(d), ncol=ncol(d))	
-	colnames(d) <- ids
+	colnames(d) <- hdr$ID
 
 #	d <- data.frame(r[(srow+1):nrow(r), 1:2], d, check.names=FALSE)
 	mname <- function(m) {
@@ -57,7 +63,7 @@ read_dart <- function(filename) {
 		}
 	}
 	markers <- data.frame(marker=marker, markers)
-	d <- data.frame(marker=marker, d)
+	rownames(d) <- marker
 	out <- list(snp=d, markers=markers, geno=hdr, type=ftype, order=ordname)	
 	class(out) <- "darter"
 	out
@@ -91,7 +97,7 @@ make_dart_1row <- function(x) {
 #	||(x$type=="counts"))
 	d <- x$snp
 	i <- seq(1, nrow(d), 2)
-	dd <- as.matrix(d[,-c(1:2)])
+	dd <- d
 
 	if (x$type == "counts") {
 		# not OK as we also need marker specific thresholds for pres/abs
@@ -135,15 +141,14 @@ make_dart_2row <- function(x) {
 	
 	first  <- c(0,1,0,1)
 	second <- c(0,0,1,1)
-	dd <- as.matrix(d[,-1])
 	a <- lapply(1:nrow(d), \(i) {
-			v <- dd[i, ] + 2
+			v <- d[i, ] + 2
 			v[is.na(v)] <- 1
 			rbind(first[v], second[v])
 		})
 	a <- do.call(rbind, a)
-	a <- data.frame(rep(d[,1], each=2), as.vector(t(e[,2:3])), a)
-	names(a) <- c("MarkerName", "AlleleSequence", names(d)[-1])
+	colnames(a) <- colnames(d)
+	rownames(a) <- paste0(rep(rownames(d), each=2), "_", 1:2)
 
 	e$id <- 1:nrow(e)
 	e <- rbind(e, e)
@@ -156,7 +161,7 @@ make_dart_2row <- function(x) {
 
 	x$snp <- a
 	x$marker <- e
-	x$type=="2_row"
+	x$type <- "2_row"
 	x
 }
 
@@ -179,24 +184,22 @@ old_dart_make_unique <- function(x) {
 
 
 write_dart <- function(x, filename) {
-	s <- x$snp[, -1]
-	colnames(s) <- x$geno$genotype
+	s <- x$snp
+	colnames(s) <- x$geno$ID
 	s <- cbind(x$marker, s)	
 	s <- rbind(colnames(s), s)
 	
 	g <- x$geno
-	
-	if (is.null(g$TargetID)) g$genotype <- NULL
-	g$ID <- g$TargetID <- NULL
+	g$targetID <- g$ID <- NULL
 	g <- t(g)
 
 	d <- abs(dim(g) - c(0, ncol(s)))
-	if (x$type == "counts") {
-		s[1, (d[2]+1):ncol(s)] <- g[nrow(g), ]
-		g <- cbind(matrix("*", d[1]-1, d[2]), g[-nrow(g), ])
-	} else {
+#	if (x$type == "counts") {
+#		#s[1, (d[2]+1):ncol(s)] <- g[nrow(g), ]
+#		g <- cbind(matrix("*", d[1]-1, d[2]), g[-nrow(g), ])
+#	} else {
 		g <- cbind(matrix("*", d[1], d[2]), g)
-	}
+#	}
 	colnames(s) <- paste0("X", 1:ncol(s))
 	colnames(g) <- paste0("X", 1:ncol(g))
 	gs <- rbind(g, s)
@@ -205,24 +208,24 @@ write_dart <- function(x, filename) {
 
 
 
-dart_combine <- function(x) {
+dart_combine <- function(x, make_unique=FALSE) {
 	stopifnot(is.list(x))
 	out <- x[[1]]
 	if (length(x) == 1) return(out)
-	
-	out$geno$ID <- paste0("G", 1:nrow(out$geno))
-	names(out$snp)[-1] <- out$geno$ID 
-	
+	cns <- colnames(out$snp)
+	colnames(out$snp) <- paste0("A", 1:nrow(out$geno))
 	for (i in 2:length(x)) {
 		y <- x[[i]]
 		s <- nrow(out$geno)
-		y$geno$ID <- paste0("G", (s+1):(s + nrow(y$geno)))
-		names(y$snp)[-1] <- y$geno$ID 
-		
-		out$snp <- merge(out$snp, y$snp, by="marker", all=TRUE)
+		cns <- c(cns, colnames(y$snp))
+		colnames(y$snp) <- paste0(LETTERS[i], (s+1):(s + nrow(y$geno))) 
+		out$snp <- merge(out$snp, y$snp, by="row.names", all=TRUE)
+		rownames(out$snp) <- out$snp[, 1]
+		out$snp <- as.matrix(out$snp[, -1])
 		out$geno <- rbind(out$geno, y$geno)
 		out$order <- paste0(out$order, "_", y$order)
 	}
+	colnames(out$snp) <- cns
 	out
 }
 

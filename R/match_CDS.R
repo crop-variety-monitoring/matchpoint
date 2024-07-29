@@ -3,40 +3,44 @@
 count_fractions <- function(counts, mincounts=NULL) {
 	n <- nrow(counts)
 	i <- seq(1, n, 2)
-	a <- counts[i,-1]
-	ab <- a + counts[i+1,-1]
+	a <- counts[i, ]
+	ab <- a + counts[i+1, ]
 	f <- a / ab
 	if (!is.null(mincounts)) {
 		f[ab < mincounts] <- NA
 	}
-	data.frame(counts[i, 1, drop=FALSE], f, check.names=FALSE)
+	f
 }
 
 
-match_CDS <- function(x, genotypes, markers, method = "cor", snp_missing_rate=0.2, CDS_cutoff=0.5,
-		mincounts=NULL, assign_threshold=NULL, filename, verbose=FALSE) {
-
-	input <- matchpoint:::prepare_data(x, genotypes, filename=filename, verbose=verbose)
+run_CDS <- function(input, method = "cor", mincounts=NULL, snp_missing_rate) {
 
 	fract <- matchpoint:::count_fractions(input$snp, mincounts=mincounts)
-	mr <- colSums(is.na(fract[,-1])) / nrow(fract)
-	fract <- fract[, c(TRUE, mr <= snp_missing_rate)]
+	mr <- colSums(is.na(fract)) / nrow(fract)
+	fract <- fract[, mr <= snp_missing_rate]
 
 	if (method == "cor") {
-		dmat <- 1 - cor(fract[,-1], use="pairwise.complete.obs")
+		dmat <- cor(fract, use="pairwise.complete.obs")
 	} else {
 		stop("unknown method")
 	}
 
-	out_all <- 1 - dmat
+	1 - dmat
+}
 
-#placeholder
-	output <- list(metadata=data.frame(metric=c("distance method", "snp_missing_rate"), value=c(method, snp_missing_rate)))
+
+match_CDS <- function(x, genotypes,  match_field, method = "cor", snp_mr=0.2, sample_mr=0.2, CDS_cutoff=0.1,
+		mincounts=NULL, assign_threshold=NULL, filename, verbose=FALSE) {
+
+	input <- matchpoint:::prepare_data(x, genotypes, match_field=match_field, filename=filename, verbose=verbose, sample_mr=sample_mr, snp_mr=NULL)
+
+	out_all <- run_CDS(input, method = "cor", mincounts=mincounts, snp_mr)
 
 	i <- which(colnames(out_all) %in% input$ref.id)
 	out_match <- out_all[-i, i]
 	ref_match <- out_all[i, i]
 	
+	output <- list(metadata=data.frame(metric=c("distance_metric", "snp_missing_rate_threshold"), value=c(method, snp_mr)))
 
 	if (is.null(assign_threshold)) {
 		gtype <- x$geno$genotype[match(colnames(ref_match), x$geno$ID)]
@@ -47,6 +51,7 @@ match_CDS <- function(x, genotypes, markers, method = "cor", snp_missing_rate=0.
 		# we want the last which.max
 		assign_threshold <- 1 - pun[nrow(pun) - which.max(rev(pun[,"mean"])) + 1, "threshold"] 
 		output[["metadata"]] <- rbind(output[["metadata"]], data.frame(metric="assign_threshold (computed)", value=assign_threshold)) 
+		output$punity <- data.frame(pun)		
 	} else {
 		output[["metadata"]] <- rbind(output[["metadata"]], data.frame(metric="assign_threshold (user input)", value=assign_threshold)) 	
 	}
@@ -122,8 +127,11 @@ match_CDS <- function(x, genotypes, markers, method = "cor", snp_missing_rate=0.
 
 
 
-refine_CDS <- function(x, genotypes, markers, method = "cor", snp_missing_rate=0.2, CDS_cutoff=0.5,
-		mincounts=NULL, assign_threshold=NULL, filename, verbose=FALSE) {
+refine_CDS <- function(x, genotypes, markers, match_field, method = "cor", ref_split=0.1, ref_lump=0.05, snp_mr=0.2, sample_mr=0.2, mincounts=NULL, filename, verbose=FALSE) {
 
+	gtypes <- genotypes[genotypes$reference, ]
+	input <- matchpoint:::prepare_data(x, gtypes, match_field=match_field, filename=filename, verbose=verbose, sample_mr=sample_mr)
+	dstm <- matchpoint:::run_CDS(input, method = "cor", mincounts=mincounts, snp_mr)
+	matchpoint:::finish_refine(x, dstm, gtypes, match_field, ref_lump, ref_split, filename)
 
 }

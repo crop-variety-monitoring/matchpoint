@@ -1,5 +1,5 @@
 export(
-read_dart, make_dart_1row, 
+read_dart, make_dart_2row, dart_combine,
 
 refine_IBS, match_IBS, 
 refine_CDS, match_CDS, 
