@@ -240,26 +240,37 @@ match_IBS <- function(x, genotypes, markers, match_field, MAF_cutoff=0.05, SNP_M
 
 
 finish_refine <- function(x, dstm, gtypes, match_field, ref_lump, ref_split, filename) {
+
 	ids <- colnames(dstm)
 	nms <- gtypes$variety[match(colnames(dstm), gtypes[,match_field])]
-	colnames(dstm) <- rownames(dstm) <- nms
-	if (is.null(ref_split) || (is.na(ref_split))) {
-		gtype <- x$geno$gtype[match(colnames(dstm), x$geno$ID)]
-		refnms <- gtypes$variety[match(gtype, gtypes$sample)]
-		dimnames(dstm) <- list(refnms, refnms)
-		pun <- matchpoint:::punity(dstm, seq(0, 0.5, .01))
+	d2 <- dstm
+	colnames(d2) <- rownames(d2) <- nms
+
+#	gtype <- x$geno$gtype[match(colnames(dstm), x$geno$ID)]
+#	refnms <- gtypes$variety[match(gtype, gtypes$sample)]
+#	dimnames(dstm) <- list(refnms, refnms)
+	pun <- matchpoint:::punity(d2, seq(0, 0.5, .01))
 		# we want the last which.max
+	if (is.null(ref_split) || (is.na(ref_split))) {
 		ref_split <- 1-pun[nrow(pun) - which.max(rev(pun[,"mean"])) + 1, "threshold"] 
 	}
 	if (is.null(ref_lump) || is.na(ref_lump)) ref_lump <- ref_split / 2
 	
-	output <- matchpoint:::refine_reference(dstm, lump=ref_lump, split=ref_split)
-	colnames(dstm) <- rownames(dstm) <- output$varieties$new
-	output$distance <- data.frame(dstm, check.names=FALSE)
+	output <- matchpoint:::refine_reference(d2, lump=ref_lump, split=ref_split)
 
-	nms <- data.frame(ID=ids, variety=output$varieties$new_name)
+	output$distance <- data.frame(newvar=output$varieties$new, dstm, check.names=FALSE)
+
+	colnames(d2) <- rownames(d2) <- output$varieties$new_name
+	pun2 <- matchpoint:::punity(d2, seq(0, 0.5, .01))
+	output$punity_original <- data.frame(pun)
+	output$punity_refined <- data.frame(pun2)
+	ref_split2 <- 1-pun2[nrow(pun2) - which.max(rev(pun2[,"mean"])) + 1, "threshold"] 
+	ref_lump2 <- ref_split / 2
+	output$parameters <- rbind(output$parameters, data.frame(split=ref_split2, lump=ref_lump2))
+	
+	newnms <- data.frame(ID=ids, variety=output$varieties$new_name)
 	colnames(genotypes)[colnames(genotypes) == "variety"] <- "old_variety"
-	output$genotypes <- merge(genotypes, nms, by.x=match_field, by.y="ID", all.x=TRUE)
+	output$genotypes <- merge(genotypes, newnms, by.x=match_field, by.y="ID", all.x=TRUE)
 	# to avoid "Coercing column plate_barcode from int64 to double" warning
 	if (!is.null(output$genotypes$plate_barcode)) output$genotypes$plate_barcode <- as.character(output$genotypes$plate_barcode)
 

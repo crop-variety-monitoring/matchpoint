@@ -32,9 +32,12 @@ run_CDS <- function(input, method = "cor", mincounts=NULL, snp_missing_rate) {
 match_CDS <- function(x, genotypes,  match_field, method = "cor", snp_mr=0.2, sample_mr=0.2, CDS_cutoff=0.1,
 		mincounts=NULL, assign_threshold=NULL, filename, verbose=FALSE) {
 
+
+	dir.create(dirname(filename), FALSE, TRUE)
+
 	input <- matchpoint:::prepare_data(x, genotypes, match_field=match_field, filename=filename, verbose=verbose, sample_mr=sample_mr, snp_mr=NULL)
 
-	out_all <- run_CDS(input, method = "cor", mincounts=mincounts, snp_mr)
+	out_all <- matchpoint:::run_CDS(input, method = "cor", mincounts=mincounts, snp_mr)
 
 	i <- which(colnames(out_all) %in% input$ref.id)
 	out_match <- out_all[-i, i]

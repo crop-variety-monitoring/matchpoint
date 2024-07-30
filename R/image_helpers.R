@@ -147,10 +147,10 @@ split_lump_old <- function(mdst, maxlump=0.05, minsplit=0.2) {
 order_names <- function() {	
 
 	d <- data.frame(
-		name = c('DCob22-7521_moreOrders', 'DEra22-7523_1_moreOrders', 'DCas23-7954', 'DCpea23-7956_moreOrders', 'DMz23-7957_7228', 'DRi23-7955_moreOrders', 'DCas23-7816', 'DCob23-7823', 'DMz23-7824', 'DRi23-7825'),
-		crop = c("bean", "teff", "cassava", "cowpea", "maize", "rice", "cassava", "bean", "maize", "rice"),
-		iso3 = c("ETH", "ETH", "NGA", "NGA", "NGA", "NGA", "TZA", "TZA", "TZA", "TZA"),
-		country = c("Ethiopia", "Ethiopia", "Nigeria", "Nigeria", "Nigeria", "Nigeria", "Tanzania", "Tanzania", "Tanzania", "Tanzania")
+		name = c('DCob22-7521_moreOrders', 'DEra22-7523_1_moreOrders', 'DMz23-8837_DMz23-8838', 'DCas23-7954', 'DCpea23-7956_moreOrders', 'DMz23-7957_7228', 'DRi23-7955_moreOrders', 'DCas23-7816', 'DCob23-7823', 'DMz23-7824', 'DRi23-7825'),
+		crop = c("bean", "teff", "maize", "cassava", "cowpea", "maize", "rice", "cassava", "bean", "maize", "rice"),
+		iso3 = c("ETH", "ETH", "ETH","NGA", "NGA", "NGA", "NGA", "TZA", "TZA", "TZA", "TZA"),
+		country = c("Ethiopia", "Ethiopia", "Ethiopia", "Nigeria", "Nigeria", "Nigeria", "Nigeria", "Tanzania", "Tanzania", "Tanzania", "Tanzania")
 	)
 	d$cc <- paste(d$country, d$crop, sep=" / ")
 	d
