@@ -239,10 +239,12 @@ match_IBS <- function(x, genotypes, markers, match_field, MAF_cutoff=0.05, SNP_M
 
 
 
-finish_refine <- function(x, dstm, gtypes, match_field, ref_lump, ref_split, filename) {
+finish_refine <- function(x, dstm, genotypes, match_field, ref_lump, ref_split, filename) {
+
+#	gtypes <- genotypes[genotypes$reference, ]
 
 	ids <- colnames(dstm)
-	nms <- gtypes$variety[match(colnames(dstm), gtypes[,match_field])]
+	nms <- genotypes$variety[match(colnames(dstm), genotypes[,match_field])]
 	d2 <- dstm
 	colnames(d2) <- rownames(d2) <- nms
 
@@ -271,6 +273,7 @@ finish_refine <- function(x, dstm, gtypes, match_field, ref_lump, ref_split, fil
 	newnms <- data.frame(ID=ids, variety=output$varieties$new_name)
 	colnames(genotypes)[colnames(genotypes) == "variety"] <- "old_variety"
 	output$genotypes <- merge(genotypes, newnms, by.x=match_field, by.y="ID", all.x=TRUE)
+	#output$genotypes$variety[is.na(output$variety)] <- ""
 	# to avoid "Coercing column plate_barcode from int64 to double" warning
 	if (!is.null(output$genotypes$plate_barcode)) output$genotypes$plate_barcode <- as.character(output$genotypes$plate_barcode)
 
@@ -310,7 +313,7 @@ refine_IBS <- function(x, genotypes, match_field, markers, ref_split=0.1, ref_lu
 	#i <- which(colnames(dstm) %in% input$ref.id)
 	#dstm <- 1-dstm[i, i]
 
-	finish_refine(x, dstm, gtypes, match_field, ref_lump, ref_split, filename)
+	finish_refine(x, dstm, genotypes, match_field, ref_lump, ref_split, filename)
 
 }
 

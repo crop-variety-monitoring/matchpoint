@@ -40,109 +40,6 @@ collapse_names <- function(x, sep="_#_") {
 }
 	
 
-split_lump <- function(mdst, lump=0.05, split=0.2) {
-
-	oldnms <- colnames(mdst)
-
-	mdst <- matchpoint::split_groups(mdst, split, TRUE)
-	mdst <- matchpoint::lump_similar(mdst, lump) 
-	newnms <- colnames(mdst)
-
-	i <- !grepl("_#_", newnms)
-	j <- (newnms[i] != oldnms[i]) & (!grepl("_.$", newnms[i]))
-	newnms[i][j] <- paste0(newnms[i][j], "*")
-
-	i <- grep("_#_", newnms)
-	newnms[i] <- gsub("_.$", "", newnms[i])
-	newnms[i] <- gsub("_._#_", "_#_", newnms[i])
-
-	simplify <- function(names, pattern) {
-		nms <- names[!grepl("_#_", names)] |> unique()
-		p <- unique(grep(pattern, nms, value=TRUE))
-		if (length(p) > 0) {
-			for (i in 1:length(p)) {
-				n <- grep(gsub(pattern, "", p[i]), nms, value=TRUE) |> unique() |> length() 
-				if (n == 1) {
-					names[names==p[i]] <- gsub(pattern, "", p[i])
-				}
-			}
-		}
-		names
-	}
-	newnms <- simplify(newnms, "_a$")
-	newnms <- simplify(newnms, "_b$")
-	
-	newnms <- collapse_names(newnms)
-	newnms <- gsub("_#_", " # ", newnms)
-
-	list(old=oldnms, new=newnms, split=split, lump=lump)
-}
-
-split_lump_old <- function(mdst, maxlump=0.05, minsplit=0.2) {
-
-	oldnms <- colnames(mdst)
-	v <- matchpoint::self_dist(mdst)
-	qth <- stats::quantile(v$value)
-	#outh <- max(minsplit, qth[4] + 1.5 * (qth[4] - qth[2]))
-	outh <- minsplit
-	splitln <- Inf
-	if (outh < qth[5]) {
-		splitln <- outh
-		mdst <- matchpoint::split_groups(mdst, outh, TRUE)
-		v <- matchpoint::self_dist(mdst)
-		qth <- stats::quantile(v$value)
-#		outh <- max(minsplit, qth[4] + 1.5 * (qth[4] - qth[2]))
-#		if ((outh < qth[5]) && (outh < splitln) && (outh > minsplit)) {
-#			splitln <- outh
-#			mdst <- matchpoint::split_groups(mdst, outh, TRUE)
-#			v <- matchpoint::self_dist(mdst)
-#			qth <- quantile(v$value)
-#		}
-	}
-
-	mdst <- matchpoint::lump_similar(mdst, max(.01, qth[2])) 
-
-	v <- matchpoint::self_dist(mdst)
-	cut <- min(maxlump, max(0.01, stats::quantile(v$value)[3]))
-	mdst <- matchpoint::lump_similar(mdst, cut) 
-
-	v <- matchpoint::self_dist(mdst)
-	cut <- min(maxlump, max(0.01, stats::quantile(v$value)[4]))
-	mdst <- matchpoint::lump_similar(mdst, cut) 
-	
-	newnms <- colnames(mdst)
-
-	i <- !grepl("_#_", newnms)
-	j <- (newnms[i] != oldnms[i]) & (!grepl("_.$", newnms[i]))
-	newnms[i][j] <- paste0(newnms[i][j], "*")
-
-	i <- grep("_#_", newnms)
-	newnms[i] <- gsub("_.$", "", newnms[i])
-	newnms[i] <- gsub("_._#_", "_#_", newnms[i])
-
-	simplify <- function(names, pattern) {
-		nms <- names[!grepl("_#_", names)] |> unique()
-		p <- unique(grep(pattern, nms, value=TRUE))
-		if (length(p) > 0) {
-			for (i in 1:length(p)) {
-				n <- grep(gsub(pattern, "", p[i]), nms, value=TRUE) |> unique() |> length() 
-				if (n == 1) {
-					names[names==p[i]] <- gsub(pattern, "", p[i])
-				}
-			}
-		}
-		names
-	}
-	newnms <- simplify(newnms, "_a$")
-	newnms <- simplify(newnms, "_b$")
-	
-	newnms <- collapse_names(newnms)
-	newnms <- gsub("_#_", " # ", newnms)
-
-	list(old=oldnms, new=newnms, split=splitln, lump=cut)
-}
-
-
 
 order_names <- function() {	
 
@@ -343,7 +240,7 @@ get_varinfo <- function(path, fix_vars=TRUE) {
 	}
 	#b = table(gsub("-", "", gsub(" ", "", s)))
 	#b[b>1]
-	fldref <- bindr(fld, ref)
+	fldref <- bindr(ref, fld)
 	fldref$crop <- tolower(fldref$crop)
 	unique(fldref)	
 }
@@ -388,8 +285,8 @@ prepare_dart <- function(path, outpath) {
 		if (length(cropf1) > 1) {  
 			# first combine everything into one file
 			message(paste0("   combining dart files"))
-			x <- lapply(cropf1, matchpoint::read_dart) 
-			x <- matchpoint:::dart_combine(x)
+			xin <- lapply(cropf1, matchpoint::read_dart) 
+			x <- matchpoint:::dart_combine(xin)
 			cropf1 <- fout1 <- file.path(outpath, paste0(x$order, "_SNP.csv"))
 			matchpoint:::write_dart(x, fout1)
 			
@@ -397,7 +294,7 @@ prepare_dart <- function(path, outpath) {
 			cropf2 <- fout2 <- file.path(outpath, paste0(x$order, "_SNP_2row.csv"))
 			matchpoint:::write_dart(y, fout2)
 
-			z <- lapply(countf, matchpoint::read_dart) 
+			z <- lapply(countf, matchpoint::read_dart, useTID=FALSE) 
 			cnts <- matchpoint:::dart_combine(z)
 			stopifnot(x$order == cnts$order)
 			foutc <- countf <- file.path(outpath, paste0(cnts$order, "_Counts.csv"))
@@ -416,19 +313,28 @@ prepare_dart <- function(path, outpath) {
 		
 		x <- matchpoint::read_dart(cropf1) 
 		if (length(unique(x$geno$ID)) < nrow(x$geno)) {
+#		if (length(unique(colnames(x$snp))) < ncol(x$snp)) {
 			cnts <- matchpoint::read_dart(countf) 
 			copycounts <- TRUE
 			if (is.null(cnts$geno$targetID)) {
 				cnts$geno$ID <- cnts$geno$targetID <- 1:nrow(cnts$geno)
-				message("   IDs not unique, but no targetID; assigning 1:n")
+				message("   IDs not unique, but no targetID; assigning 1,2,3,...")
 				copycounts <- FALSE
 				matchpoint:::write_dart(cnts, foutc)
 			}
-			if (!all(colnames(x$snp) == cnts$geno$GenotypeID)) {
+			cns <- colnames(cnts$snp) # cnts$geno$targetID
+			if (length(cns) > ncol(x$snp)) {
+				if (all(colnames(x$snp) == cns[1:ncol(x$snp)])) {
+					cns <- cns[1:ncol(x$snp)]
+				} else {
+					stop("cannot match targetID to 1_row file")
+				}
+			} else if (!all(colnames(x$snp) == cnts$geno$genotypeID)) {
 				stop("cannot match targetID to 1_row file")
 			}
+			
 			message("   transferring targetID")
-			colnames(x$snp) <- x$geno$targetID <- x$geno$ID <- cnts$geno$targetID
+			colnames(x$snp) <- x$geno$targetID <- x$geno$ID <- cns
 			row2 <- matchpoint::read_dart(cropf2) 
 			if (!all(colnames(row2$snp) == cnts$geno$GenotypeID)) {
 				stop("cannot match targetID to 2_row file")
@@ -456,7 +362,7 @@ prepare_dart <- function(path, outpath) {
 		if (nrow(pos) != nrow(x$markers)) {
 			message(paste("   SNP data has", nrow(x$markers), "markers. Panel has", nrow(pos), "matches")) 
 		}
-		m <- match(x$markers$MarkerName, pos$MarkerName)
+		m <- match(x$markers$MarkerName, pos$MarkerName)	
 		if (any(is.na(m))) message(paste0(sum(is.na(m)), " unknown markers found"))
 		x$markers$order <- 1:nrow(x$markers)
 		m <- merge(pos, x$markers, by="MarkerName", all.y=TRUE)

@@ -48,7 +48,7 @@ match_CDS <- function(x, genotypes,  match_field, method = "cor", snp_mr=0.2, sa
 	if (is.null(assign_threshold)) {
 		gtype <- x$geno$genotype[match(colnames(ref_match), x$geno$ID)]
 		refnms <- genotypes$variety[match(gtype, genotypes$sample)]
-	
+
 		dimnames(ref_match) <- list(refnms, refnms)
 		pun <- matchpoint:::punity(1-ref_match, seq(0, 0.5, .01))
 		# we want the last which.max
@@ -135,6 +135,6 @@ refine_CDS <- function(x, genotypes, markers, match_field, method = "cor", ref_s
 	gtypes <- genotypes[genotypes$reference, ]
 	input <- matchpoint:::prepare_data(x, gtypes, match_field=match_field, filename=filename, verbose=verbose, sample_mr=sample_mr)
 	dstm <- matchpoint:::run_CDS(input, method = "cor", mincounts=mincounts, snp_mr)
-	matchpoint:::finish_refine(x, dstm, gtypes, match_field, ref_lump, ref_split, filename)
+	matchpoint:::finish_refine(x, dstm, genotypes, match_field, ref_lump, ref_split, filename)
 
 }

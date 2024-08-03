@@ -161,3 +161,108 @@ lump_similar <- function(x, threshold, verbose=FALSE) {
 
 
 
+## old?
+
+
+split_lump <- function(mdst, lump=0.05, split=0.2) {
+
+	oldnms <- colnames(mdst)
+
+	mdst <- matchpoint::split_groups(mdst, split, TRUE)
+	mdst <- matchpoint::lump_similar(mdst, lump) 
+	newnms <- colnames(mdst)
+
+	i <- !grepl("_#_", newnms)
+	j <- (newnms[i] != oldnms[i]) & (!grepl("_.$", newnms[i]))
+	newnms[i][j] <- paste0(newnms[i][j], "*")
+
+	i <- grep("_#_", newnms)
+	newnms[i] <- gsub("_.$", "", newnms[i])
+	newnms[i] <- gsub("_._#_", "_#_", newnms[i])
+
+	simplify <- function(names, pattern) {
+		nms <- names[!grepl("_#_", names)] |> unique()
+		p <- unique(grep(pattern, nms, value=TRUE))
+		if (length(p) > 0) {
+			for (i in 1:length(p)) {
+				n <- grep(gsub(pattern, "", p[i]), nms, value=TRUE) |> unique() |> length() 
+				if (n == 1) {
+					names[names==p[i]] <- gsub(pattern, "", p[i])
+				}
+			}
+		}
+		names
+	}
+	newnms <- simplify(newnms, "_a$")
+	newnms <- simplify(newnms, "_b$")
+	
+	newnms <- collapse_names(newnms)
+	newnms <- gsub("_#_", " # ", newnms)
+
+	list(old=oldnms, new=newnms, split=split, lump=lump)
+}
+
+split_lump_old <- function(mdst, maxlump=0.05, minsplit=0.2) {
+
+	oldnms <- colnames(mdst)
+	v <- matchpoint::self_dist(mdst)
+	qth <- stats::quantile(v$value)
+	#outh <- max(minsplit, qth[4] + 1.5 * (qth[4] - qth[2]))
+	outh <- minsplit
+	splitln <- Inf
+	if (outh < qth[5]) {
+		splitln <- outh
+		mdst <- matchpoint::split_groups(mdst, outh, TRUE)
+		v <- matchpoint::self_dist(mdst)
+		qth <- stats::quantile(v$value)
+#		outh <- max(minsplit, qth[4] + 1.5 * (qth[4] - qth[2]))
+#		if ((outh < qth[5]) && (outh < splitln) && (outh > minsplit)) {
+#			splitln <- outh
+#			mdst <- matchpoint::split_groups(mdst, outh, TRUE)
+#			v <- matchpoint::self_dist(mdst)
+#			qth <- quantile(v$value)
+#		}
+	}
+
+	mdst <- matchpoint::lump_similar(mdst, max(.01, qth[2])) 
+
+	v <- matchpoint::self_dist(mdst)
+	cut <- min(maxlump, max(0.01, stats::quantile(v$value)[3]))
+	mdst <- matchpoint::lump_similar(mdst, cut) 
+
+	v <- matchpoint::self_dist(mdst)
+	cut <- min(maxlump, max(0.01, stats::quantile(v$value)[4]))
+	mdst <- matchpoint::lump_similar(mdst, cut) 
+	
+	newnms <- colnames(mdst)
+
+	i <- !grepl("_#_", newnms)
+	j <- (newnms[i] != oldnms[i]) & (!grepl("_.$", newnms[i]))
+	newnms[i][j] <- paste0(newnms[i][j], "*")
+
+	i <- grep("_#_", newnms)
+	newnms[i] <- gsub("_.$", "", newnms[i])
+	newnms[i] <- gsub("_._#_", "_#_", newnms[i])
+
+	simplify <- function(names, pattern) {
+		nms <- names[!grepl("_#_", names)] |> unique()
+		p <- unique(grep(pattern, nms, value=TRUE))
+		if (length(p) > 0) {
+			for (i in 1:length(p)) {
+				n <- grep(gsub(pattern, "", p[i]), nms, value=TRUE) |> unique() |> length() 
+				if (n == 1) {
+					names[names==p[i]] <- gsub(pattern, "", p[i])
+				}
+			}
+		}
+		names
+	}
+	newnms <- simplify(newnms, "_a$")
+	newnms <- simplify(newnms, "_b$")
+	
+	newnms <- collapse_names(newnms)
+	newnms <- gsub("_#_", " # ", newnms)
+
+	list(old=oldnms, new=newnms, split=splitln, lump=cut)
+}
+

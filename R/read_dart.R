@@ -1,5 +1,5 @@
 
-read_dart <- function(filename) {
+read_dart <- function(filename, useTID=TRUE) {
 
 	r <- data.frame(data.table::fread(filename, header=FALSE), check.names=FALSE)
 	ordname <- gsub("^Report_", "", basename(filename))
@@ -18,7 +18,7 @@ read_dart <- function(filename) {
 		hdr$ID <- hdr$genotypeID
 	} else 	if (ncol(hdr) == 8) {
 		colnames(hdr) <- c(cns, "targetID")
-		if (length(unique(hdr$genotypeID)) < nrow(hdr)) {
+		if (useTID & (length(unique(hdr$genotypeID)) < nrow(hdr))) {
 			hdr$ID <- hdr$targetID
 		} else {
 			hdr$ID <- hdr$genotypeID	
@@ -184,15 +184,20 @@ old_dart_make_unique <- function(x) {
 
 
 write_dart <- function(x, filename) {
-	s <- x$snp
-	colnames(s) <- x$geno$ID
+	s <- x$snp	
+	g <- x$geno
+
+	if (!is.null(g$targetID)) {
+		colnames(s) <- x$geno$targetID
+	} else {
+		colnames(s) <- x$geno$ID
+	}
+	g$ID <- g$targetID <- NULL
+
 	s <- cbind(x$marker, s)	
 	s <- rbind(colnames(s), s)
-	
-	g <- x$geno
-	g$targetID <- g$ID <- NULL
-	g <- t(g)
 
+	g <- t(g)
 	d <- abs(dim(g) - c(0, ncol(s)))
 #	if (x$type == "counts") {
 #		#s[1, (d[2]+1):ncol(s)] <- g[nrow(g), ]
@@ -209,6 +214,8 @@ write_dart <- function(x, filename) {
 
 
 dart_combine <- function(x, make_unique=FALSE) {
+
+# needs to check if TID was used in read.dart
 	stopifnot(is.list(x))
 	out <- x[[1]]
 	if (length(x) == 1) return(out)
