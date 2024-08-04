@@ -83,6 +83,7 @@ remove_unknown_samples <- function(x, sample.id, verbose=FALSE) {
 	j <- is.na(i)
 	if (any(j)) {
 		if (verbose) message(paste("  ", sum(j), "unmatched genotype(s) removed"))
+		stopifnot(all(x$geno$ID == colnames(x)))
 		x$snp <- x$snp[, !j]
 		x$geno <- x$geno[!j, ]
 	}
@@ -112,12 +113,11 @@ prepare_data <- function(x, genotypes, match_field = "", markers=NULL, filename,
 		genotypes <- merge(x$geno, genotypes, by.x="ID", by.y=match_field)
 		if (length(unique(genotypes$ID)) != nrow(genotypes)) {
 			message("genotypes file sample numbers are not unique")
-		}		
+		}
 	}
 
 	x <- matchpoint:::remove_unknown_samples(x, genotypes$ID, verbose=verbose)
 	#snp <- matchpoint:::fix_duplicate_names(snp, suf=dupsuf, verbose=verbose)
-
 
 	if (!(is.null(sample_mr) && is.null(snp_mr))) {
 		x$snp <- remove_sparse_records(x$snp, sample_mr, snp_mr, rows=nr, verbose)

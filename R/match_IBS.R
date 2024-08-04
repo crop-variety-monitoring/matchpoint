@@ -284,6 +284,7 @@ finish_refine <- function(x, dstm, genotypes, match_field, ref_lump, ref_split, 
 		xlsx <- paste0(filename, ".xlsx")
 		dir.create(dirname(xlsx), FALSE, TRUE)
 		writexl::write_xlsx(output, xlsx, format_headers=FALSE)
+		utils::write.csv(output$genotypes, paste0(filename, "_variety-info.csv"), row.names=FALSE)
 		saveRDS(output, paste0(filename, ".rds"))
 		invisible(output)
 	}
@@ -298,7 +299,6 @@ refine_IBS <- function(x, genotypes, match_field, markers, ref_split=0.1, ref_lu
 
 
 	gtypes <- genotypes[genotypes$reference, ]
-
 	input <- matchpoint:::prepare_data(x, gtypes, match_field, markers, filename=filename, verbose=verbose)
 	
 	rIBS <- matchpoint:::run_IBS(input, MAF_cutoff=MAF_cutoff, SNP_Missing_Rate=SNP_Missing_Rate, 
@@ -310,8 +310,6 @@ refine_IBS <- function(x, genotypes, match_field, markers, ref_split=0.1, ref_lu
 
 	dstm <- 1-ibs[[3]]
 	colnames(dstm) <- rownames(dstm) <- ibs[[1]]
-	#i <- which(colnames(dstm) %in% input$ref.id)
-	#dstm <- 1-dstm[i, i]
 
 	finish_refine(x, dstm, genotypes, match_field, ref_lump, ref_split, filename)
 

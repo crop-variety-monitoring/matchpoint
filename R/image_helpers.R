@@ -311,64 +311,77 @@ prepare_dart <- function(path, outpath) {
 		}
 
 		
-		x <- matchpoint::read_dart(cropf1) 
-		if (length(unique(x$geno$ID)) < nrow(x$geno)) {
-#		if (length(unique(colnames(x$snp))) < ncol(x$snp)) {
+		row1 <- matchpoint::read_dart(cropf1) 
+		if (length(unique(row1$geno$ID)) < nrow(row1$geno)) {
+#		if (length(unique(colnames(row1$snp))) < ncol(row1$snp)) {
 			cnts <- matchpoint::read_dart(countf) 
 			copycounts <- TRUE
 			if (is.null(cnts$geno$targetID)) {
 				cnts$geno$ID <- cnts$geno$targetID <- 1:nrow(cnts$geno)
-				message("   IDs not unique, but no targetID; assigning 1,2,3,...")
+				message("   IDs not unique, but Counts file has no targetID; assigning 1,2,3,...")
 				copycounts <- FALSE
 				matchpoint:::write_dart(cnts, foutc)
 			}
-			cns <- colnames(cnts$snp) # cnts$geno$targetID
-			if (length(cns) > ncol(x$snp)) {
-				if (all(colnames(x$snp) == cns[1:ncol(x$snp)])) {
-					cns <- cns[1:ncol(x$snp)]
-				} else {
-					stop("cannot match targetID to 1_row file")
-				}
-			} else if (!all(colnames(x$snp) == cnts$geno$genotypeID)) {
-				stop("cannot match targetID to 1_row file")
-			}
+			ids <- cnts$geno[, c("genotypeID", "targetID")]
 			
 			message("   transferring targetID")
-			colnames(x$snp) <- x$geno$targetID <- x$geno$ID <- cns
+
 			row2 <- matchpoint::read_dart(cropf2) 
-			if (!all(colnames(row2$snp) == cnts$geno$GenotypeID)) {
-				stop("cannot match targetID to 2_row file")
+			stopifnot(all(colnames(row2 == colnames(row1))))
+			cns <- colnames(row1$snp)
+			#mtch <- lapply(1:length(cns), function(i) cbind(i, which(ids$genotypeID %in% cns[i])) )
+			#mtch <- lapply(mtch, function(m) cbind(m, ids[m[,2], ]))
+			#mtch <- do.call(rbind, mtch)
+
+			u <- unique(cns)
+			out <- rep(NA, length(cns))
+			gout <- rep(as.integer(NA), length(cns))
+			for (i in u) {
+				k <- which(cns==i)
+				# 1:length(k) because teff has more genotypes in cnts and inf than in 1_row
+				out[k] <- rep_len(cnts$geno$targetID[which(cnts$geno$genotypeID == i)], length(k))
+				gout[k] <- rep_len(which(inf$sample==i), length(k))
 			}
-			colnames(row2$snp) <- row2$geno$targetID <- row2$geno$ID <- cnts$geno$targetID
-				
-			matchpoint:::write_dart(x, fout1)
+			
+			if (any(is.na(out))) {
+				stop("1_row file does not have unique IDs and they do not match targetID of Counts file")
+			}
+			colnames(row1$snp) <- row1$geno$targetID <- row1$geno$ID <- out
+			colnames(row2$snp) <- row2$geno$targetID <- row2$geno$ID <- out
+			inf <- inf[gout, ]
+			inf$targetID <- row1$geno$targetID
+			inf <- inf[!is.na(inf$targetID), ]
+			
+			# new refs with duplicate sample numbers may have been added
+			inf$reference[inf$sample %in% inf$sample[inf$reference]] <- TRUE
+						
+			matchpoint:::write_dart(row1, fout1)
 			matchpoint:::write_dart(row2, fout2)
 
-			if (copycounts) matchpoint:::copy_dart_files(croppath, outpath, x$order, counts_only=TRUE)
+			if (copycounts) matchpoint:::copy_dart_files(croppath, outpath, row1$order, counts_only=TRUE)
 		} else {
-			matchpoint:::copy_dart_files(croppath, outpath, x$order)
-
+			matchpoint:::copy_dart_files(croppath, outpath, row1$order)
 			if (!file.exists(cropf2)) {
 				message("   creating 2 row file")
-				y <- make_dart_2row(x)
+				y <- make_dart_2row(row1)
 				matchpoint:::write_dart(y, fout2)
 			}
 		}
 		utils::flush.console()
 
 		pos <- matchpoint::marker_positions(crop)
-		i <- pos$MarkerName %in% x$markers$marker
+		i <- pos$MarkerName %in% row1$markers$marker
 		pos <- pos[i, ]
-		if (nrow(pos) != nrow(x$markers)) {
-			message(paste("   SNP data has", nrow(x$markers), "markers. Panel has", nrow(pos), "matches")) 
+		if (nrow(pos) != nrow(row1$markers)) {
+			message(paste("   SNP data has", nrow(row1$markers), "markers. Panel has", nrow(pos), "matches")) 
 		}
-		m <- match(x$markers$MarkerName, pos$MarkerName)	
+		m <- match(row1$markers$MarkerName, pos$MarkerName)	
 		if (any(is.na(m))) message(paste0(sum(is.na(m)), " unknown markers found"))
-		x$markers$order <- 1:nrow(x$markers)
-		m <- merge(pos, x$markers, by="MarkerName", all.y=TRUE)
+		row1$markers$order <- 1:nrow(row1$markers)
+		m <- merge(pos, row1$markers, by="MarkerName", all.y=TRUE)
 		m <- m[m$order, ]
 		m$order <- NULL
-		x$markers <- m
+		row1$markers <- m
 
 		if (!is.null(loc)) {
 			n <- nrow(inf)
@@ -377,34 +390,33 @@ prepare_dart <- function(path, outpath) {
 			inf <- inf[, c(names(varinfo), c("longitude", "latitude"))]
 		}
 		
-
 		# cowpea mixtures
 		inf <- inf[inf$variety != "MIXTURES", ]
 		
 		if ("order" %in% names(inf)) {
-			test <- merge(inf, x$geno, by.x=c("order", "sample"), by.y=c("order", "ID"))
+			test <- merge(inf, row1$geno, by.x=c("order", "sample"), by.y=c("order", "ID"))
 			if (nrow(unique(test[, c("order", "sample")])) != nrow(test)) {
 				message("   info-file order/sample numbers are not unique")
 			}
 		} else {
-			test <- merge(inf, x$geno, by.x="sample", by.y="ID")
+			test <- merge(inf, row1$geno, by.x="sample", by.y="ID")
 			if (length(unique(test$sample)) != nrow(test)) {
 				message("   info-file sample numbers are not unique")
 			}
 		}
-		#dartnms <- x$geno$genotype
+		#dartnms <- row1$geno$genotype
 		#refnms <- as.character(inf[inf$crop == crop, "sample"])
 		#i <- match(dartnms, refnms)
 
-		bname <- file.path(outpath, x$order)
+		bname <- file.path(outpath, row1$order)
 
 
 		utils::write.csv(inf, paste0(bname, "_variety-info.csv"), row.names=FALSE)
-#		utils::write.csv(x$marker, paste0(bname, "_marker-info.csv"), row.names=FALSE)
+#		utils::write.csv(row1$marker, paste0(bname, "_marker-info.csv"), row.names=FALSE)
 		
-		x$order <- x$type <- NULL
-		x$snp <- data.frame(SNP=rownames(x$snp), x$snp)
-		writexl::write_xlsx(x, paste0(bname, ".xlsx"), format_headers=FALSE)
+		row1$order <- row1$type <- NULL
+		row1$snp <- data.frame(SNP=rownames(row1$snp), row1$snp)
+		writexl::write_xlsx(row1, paste0(bname, ".xlsx"), format_headers=FALSE)
 	}
 }
 
