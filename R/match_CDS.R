@@ -114,7 +114,7 @@ match_CDS <- function(x, genotypes,  match_field, method = "cor", snp_mr=0.2, sa
 	colnames(rept)[-1] <- c("avg", "sd", "nr")
 
 	output[["similarity"]] <- out_match
-	out_all <- data.frame(ID=colnames(out_all), 1-out_all, check.names=FALSE)
+	out_all <- data.frame(ID=colnames(out_all), out_all, check.names=FALSE)
 	rownames(out_all) <- NULL
 	output[["distance"]] <- out_all
 

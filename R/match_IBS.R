@@ -254,7 +254,7 @@ finish_refine <- function(x, dstm, genotypes, match_field, ref_lump, ref_split, 
 	pun <- matchpoint:::punity(d2, seq(0, 0.5, .01))
 		# we want the last which.max
 	if (is.null(ref_split) || (is.na(ref_split))) {
-		ref_split <- 1-pun[nrow(pun) - which.max(rev(pun[,"mean"])) + 1, "threshold"] 
+		ref_split <- pun[nrow(pun) - which.max(rev(pun[,"mean"])) + 1, "threshold"] 
 	}
 	if (is.null(ref_lump) || is.na(ref_lump)) ref_lump <- ref_split / 2
 	
@@ -266,8 +266,8 @@ finish_refine <- function(x, dstm, genotypes, match_field, ref_lump, ref_split, 
 	pun2 <- matchpoint:::punity(d2, seq(0, 0.5, .01))
 	output$punity_original <- data.frame(pun)
 	output$punity_refined <- data.frame(pun2)
-	ref_split2 <- 1-pun2[nrow(pun2) - which.max(rev(pun2[,"mean"])) + 1, "threshold"] 
-	ref_lump2 <- ref_split / 2
+	ref_split2 <- pun2[nrow(pun2) - which.max(rev(pun2[,"mean"])) + 1, "threshold"] 
+	ref_lump2 <- ref_split2 / 2
 	output$parameters <- rbind(output$parameters, data.frame(split=ref_split2, lump=ref_lump2))
 	
 	newnms <- data.frame(ID=ids, variety=output$varieties$new_name)
