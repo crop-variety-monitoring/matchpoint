@@ -2,24 +2,24 @@
 ibs_distance <- function(ref, fld=NULL) {
 	if (is.null(fld)) {
 		ref <- as.matrix(ref)
-		ref[] <- match(ref, c(0,2,1)) - 1
+		#ref[] <- match(ref, c(0,2,1)) - 1
 
 		out <- matrix(NA, ncol=ncol(ref), nrow=ncol(ref))
 		colnames(out) <- rownames(out) <- colnames(ref)
 		nc <- ncol(ref)
-		for (i in 1:nc) {
-			j <- i:nc
-			out[i, j] <- out[j, i] <- colSums(2 - abs(ref[,j,drop=FALSE] - ref[,i]), na.rm=TRUE)
+		for (i in 1:(nc-1)) {
+			j <- (i+1):nc
+			out[i, j] <- out[j, i] <- colMeans(abs(ref[,j,drop=FALSE] - ref[,i]), na.rm=TRUE)
 		}
 	} else {
 		ref <- as.matrix(ref)
 		fld <- as.matrix(fld)
 		ref[] <- match(ref, c(0,2,1)) - 1
 		fld[] <- match(fld, c(0,2,1)) - 1
-		out <- t(sapply(1:ncol(fld), \(i) colSums(2 - abs(ref[,j,drop=FALSE] - ref[,i]), na.rm=TRUE)))
+		out <- t(sapply(1:ncol(fld), \(i) colMeans(abs(ref[,j,drop=FALSE] - ref[,i]), na.rm=TRUE)))
 		rownames(out) <- colnames(fld)
 	}
-	1 - (out / (2 * nrow(ref)))
+	out / 2
 }	
 
 
