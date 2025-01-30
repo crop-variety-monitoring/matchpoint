@@ -97,25 +97,25 @@ make_dart_1row <- function(x) {
 #	||(x$type=="counts"))
 	d <- x$snp
 	i <- seq(1, nrow(d), 2)
-	dd <- d
+	#dd <- d
 
 	if (x$type == "counts") {
 		# not OK as we also need marker specific thresholds for pres/abs
 		threshold = 0.2
-		f1 <- dd[i,] / dd[i+1,]
+		f1 <- d[i,] / d[i+1,]
 		f1[] <- pmin(1, f1)
-		f1[dd[i,] == 0] <- 0
-		f1[dd[i+1,] == 0 & dd[i,] != 0] <- 1
+		f1[d[i,] == 0] <- 0
+		f1[d[i+1,] == 0 & d[i,] != 0] <- 1
 		f1 <- ifelse(f1 < threshold, 0, 1)
 
-		f2 <- dd[i+1,] / dd[i,]
+		f2 <- d[i+1,] / d[i,	]
 		f2[] <- pmin(1, f2)
-		f2[dd[i+1,] == 0] <- 0
-		f2[dd[i,] == 0 & dd[i+1,] != 0] <- 1
+		f2[d[i+1,] == 0] <- 0
+		f2[d[i,] == 0 & d[i+1,] != 0] <- 1
 		f2 <- ifelse(f2 < threshold, 0, 1)
 		snp = 10 * f1 + f2
 	} else {
-		snp = 10 * dd[i,] + dd[i+1,]
+		snp = 10 * d[i,] + d[i+1,]
 	}
 	
 	snp[snp== 0] <- NA
@@ -124,10 +124,10 @@ make_dart_1row <- function(x) {
 	
 	x$snp <- cbind(d[i, 1, drop=FALSE], snp)
 
-	m <- x$marker[i+1,]
-	m <- cbind (m[1], x$marker[i,2], m[-1])
-	colnames(m)[2:3] <- paste0(colnames(x$marker)[2], c("Ref", "Alt"))
-	x$marker <- m
+	m <- x$markers[i+1,]
+	m <- cbind (m[1], x$markers[i,2], m[-1])
+	colnames(m)[2:3] <- paste0(colnames(x$markers)[2], c("Ref", "Alt"))
+	x$markers <- m
 	x$type="1_row"
 	x
 }
