@@ -1,9 +1,8 @@
 
 ibs_distance <- function(ref, fld=NULL) {
+## for single row snp where values are 0, 1, 2 (times a variant was detected)
 	if (is.null(fld)) {
 		ref <- as.matrix(ref)
-		#ref[] <- match(ref, c(0,2,1)) - 1
-
 		out <- matrix(NA, ncol=ncol(ref), nrow=ncol(ref))
 		colnames(out) <- rownames(out) <- colnames(ref)
 		nc <- ncol(ref)

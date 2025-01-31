@@ -122,7 +122,7 @@ make_dart_1row <- function(x) {
 	snp[snp==10] <- 0
 	snp[snp==11] <- 2
 	
-	x$snp <- cbind(d[i, 1, drop=FALSE], snp)
+	x$snp <- snp
 
 	m <- x$markers[i+1,]
 	m <- cbind (m[1], x$markers[i,2], m[-1])
