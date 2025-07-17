@@ -1,7 +1,5 @@
 
-run_IBS <- function(input, MAF_cutoff=0.05, SNP_Missing_Rate=0.2, 
-				Ref_Missing_Rate=0.2, Sample_Missing_Rate=0.2, 
-				Ref_Heterozygosity_Rate=1, Sample_Heterozygosity_Rate=1,
+run_IBS <- function(input, MAF_cutoff=0.05, SNP_Missing_Rate=0.2, Sample_Missing_Rate=0.2, Sample_Heterozygosity_Rate=1,
 				Inb_method="mom.visscher", threads=4, verbose=FALSE) {
 
 	
@@ -24,7 +22,7 @@ run_IBS <- function(input, MAF_cutoff=0.05, SNP_Missing_Rate=0.2,
 	
 	## create a gds file
 	SNPRelate::snpgdsCreateGeno(
-					input$gds, 
+					paste0(tempfile(), ".gds"), 
 					genmat=dmat,
 					sample.id = colnames(dmat), 
 					snp.id = input$markers$MarkerName,
@@ -107,8 +105,7 @@ run_IBS <- function(input, MAF_cutoff=0.05, SNP_Missing_Rate=0.2,
 ### RH omitting genotypes / markers with too much missing data 
 	use_ids <- c(fld$fld_id[!fld$drop_miss], ref$ref_id[!ref$drop_miss])
 
-	ibs <- SNPRelate::snpgdsIBS(genofile, sample.id=use_ids, 
-		num.thread=threads, autosome.only=FALSE, verbose=verbose,
+	ibs <- SNPRelate::snpgdsIBS(genofile, sample.id=use_ids, num.thread=threads, autosome.only=FALSE, verbose=verbose,
 		maf=MAF_cutoff, missing.rate=SNP_Missing_Rate)
 
 	SNPRelate::snpgdsClose(genofile)
@@ -236,8 +233,6 @@ match_IBS <- function(x, genotypes, markers, match_field, MAF_cutoff=0.05, SNP_M
 		output
 	}
 }
-
-
 
 
 refine_IBS <- function(x, genotypes, match_field, markers, ref_split=0.1, ref_lump=0.05, 

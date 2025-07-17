@@ -160,10 +160,6 @@ lump_similar <- function(x, threshold, verbose=FALSE) {
 }
 
 
-
-## old?
-
-
 split_lump <- function(mdst, lump=0.05, split=0.2) {
 
 	oldnms <- colnames(mdst)
